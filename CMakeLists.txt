@@ -2,9 +2,16 @@ project(MBRadio)
 set(PROJECT_NAME "MBRadio")
 ##BEGIN MBPM_VARIABLES
 set(MBPM_DEPENDENCIES 
-	"MBCLI"
+	"MBPlay"
+	"MrBoboSockets"
+	"MBMime"
+	"MBParsing"
 	"MBUtility"
 	"MBUnicode"
+	"MrBigInt"
+	"MBCrypto"
+	"cryptopp"
+	"MBAudioEngine"
 	"MBMedia"
 	"ffmpeg#avformat"
 	"ffmpeg#avcodec"
@@ -13,6 +20,14 @@ set(MBPM_DEPENDENCIES
 	"ffmpeg#avutil"
 	"ffmpeg#swresample"
 	"ffmpeg#swscale"
+	"MBGraphicsEngine"
+	"stb"
+	"assimp"
+	"irrxml"
+	"zlib"
+	"glfw"
+	"gl3w"
+	"MBCLI"
 )
 set(MBPM_SystemLibraries
 Ws2_32.lib
@@ -25,6 +40,8 @@ Mfuuid.lib
 )
 set(MBPM_DependanciesIncludeDirectories
 $ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/ffmpeg//
+$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/assimp//include/
+$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/gl3w//include/
 )
 set(MBPM_TARGET_EXTPACKET_LIBRARIES )
 set(MBPM_TARGET_COMPILE_OPTIONS )
