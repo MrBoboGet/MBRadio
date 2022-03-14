@@ -1,6 +1,7 @@
 #include <MBCLI/MBCLI.h>
 #include <MBPlay/MBPlay.h>
 #include <MBAudioEngine/MBAudioDevices.h>
+#include <MBParsing/MBParsing.h>
 namespace MBRadio
 {
 	class MBRadio;
@@ -65,19 +66,52 @@ namespace MBRadio
 		void SetCurrentSong(size_t SongIndex);
 
 	};
-	
+	//REPLWindow window handlers
+
+	class REPLWindow_QueryDisplayer : public MBRadioWindow
+	{
+	private:
+		std::mutex m_InternalsMutex;
+		std::atomic<bool> m_Updated{ true };
+		MBCLI::TableCreator m_ResultTable;
+		int m_CurrentRowOffset = 0;
+		int m_CurrentCharacterOffset = 0;
+
+		int m_Width = 0;
+		int m_Height = 0;
+
+	public:
+		REPLWindow_QueryDisplayer(MBParsing::JSONObject const& QueryDirectiveResponse,int InitialWidth,int InitialHeight);
+		
+		virtual bool Updated() override;
+		virtual CursorInfo GetCursorInfo() override;
+		virtual void SetActiveWindow(bool ActiveStatus) override;
+		virtual void SetDimension(int Width, int Height) override;
+		virtual MBCLI::TerminalWindowBuffer GetDisplay() override;
+		virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) override;
+	};
+
+
 	class REPLWindow : public MBRadioWindow
 	{
 	private:
 		bool m_IsActive = false;
-		bool m_Updated = true;
+		std::atomic<bool> m_Updated{true};
 		int m_Height = -1;
 		int m_Width = -1;
+
+		std::unique_ptr<MBRadioWindow> m_ResultWindow = nullptr;
 
 		MBCLI::LineBuffer m_OutputBuffer;
 		MBCLI::DefaultInputReciever m_InputLineReciever;
 
 		MBRadio* m_AssociatedRadio = nullptr;
+
+		void p_HandleQuerryCommand(std::string const& QuerryCommand);
+
+
+		MBParsing::JSONObject p_GetSavedMBSiteUserAuthentication();
+		std::string p_GetMBSiteURL();
 	public:
 		REPLWindow(MBRadio* AssociatedRadio);
 
