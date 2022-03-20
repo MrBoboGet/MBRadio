@@ -3,10 +3,13 @@
 #include <MBCLI/MBCLI.h>
 #include <ctime>
 #include <MrBoboSockets/MrBoboSockets.h>
+
+#include <MBMedia/MBMedia.h>
 int main(int argc, const char** argv)
 {
 	//std::cout << std::string("asd", 1000) << std::endl;
 	//exit(0);
+	MBMedia::SetLogLevel(MBMedia::LogLevel::None);
 	MBSockets::Init();
 	//MBSockets::HTTPFileStream FileStreamTest;
 	//FileStreamTest.SetInputURL("https://127.0.0.1/DB/Playlists/TestPlaylist.mbdbo");

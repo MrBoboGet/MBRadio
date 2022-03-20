@@ -50,9 +50,10 @@ namespace MBRadio
 		int m_Height = -1;
 		bool m_Updated = true;
 		bool m_Shuffle = false;
-		size_t m_SongDisplayIndex = 0;
-		size_t m_CurrentSongIndex = -1;
+		int m_SongDisplayIndex = 0;
+		int m_CurrentSongIndex = -1;
 		std::vector<Song> m_PlaylistSongs = {};
+		std::vector<size_t> m_ShuffleIndexes = {};
 	public:
 		virtual bool Updated() override;
 		virtual void SetActiveWindow(bool ActiveStatus) override;
@@ -60,10 +61,13 @@ namespace MBRadio
 		virtual MBCLI::TerminalWindowBuffer GetDisplay() override;
 		virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) override;
 
+		void RemoveSong(size_t SongIndex);
+		void ClearSongs();
+
 		void AddSong(Song SongToAdd,size_t SongPosition = -1);
 		void SetShuffle(bool IsShuffle);
 		Song GetNextSong();
-		void SetCurrentSong(size_t SongIndex);
+		void SetNextSong(size_t SongIndex);
 
 	};
 	//REPLWindow window handlers
@@ -81,8 +85,11 @@ namespace MBRadio
 		int m_Height = 0;
 
 	public:
-		REPLWindow_QueryDisplayer(MBParsing::JSONObject const& QueryDirectiveResponse,int InitialWidth,int InitialHeight);
+		//REPLWindow_QueryDisplayer(MBParsing::JSONObject const& QueryDirectiveResponse,int InitialWidth,int InitialHeight);
+		REPLWindow_QueryDisplayer(std::vector<std::vector<std::string>> QueryDirectiveResponse,int InitialWidth,int InitialHeight);
 		
+
+
 		virtual bool Updated() override;
 		virtual CursorInfo GetCursorInfo() override;
 		virtual void SetActiveWindow(bool ActiveStatus) override;
@@ -108,7 +115,9 @@ namespace MBRadio
 		MBRadio* m_AssociatedRadio = nullptr;
 
 		void p_HandleQuerryCommand(std::string const& QuerryCommand);
+		void p_HandleAddCommand(std::string const& AddCommand);
 
+		std::vector<std::vector<std::string>> p_GetQuerryResponse(std::string const& Host, std::string const& Querry,MBParsing::JSONObject VerificationData,MBError* OutError);
 
 		MBParsing::JSONObject p_GetSavedMBSiteUserAuthentication();
 		std::string p_GetMBSiteURL();
@@ -131,18 +140,21 @@ namespace MBRadio
 		std::thread m_AudioThread;
 		std::unique_ptr<MBAE::AudioOutputDevice> m_OutputDevice = nullptr;
 		
-		std::mutex m_SongRequestMutex;
+		std::mutex m_RequestMutex;
+		std::condition_variable m_RequestConditional;
+
 		std::atomic<bool> m_SongRequested{ false };
 		Song m_RequestedSong;
-
-		std::mutex m_SeekRequestMutex;
 		std::atomic<bool> m_SeekRequested{ false };
-		int64_t m_SeekPosition;
+		double m_SeekPosition;
 
-		std::mutex m_DataFetcherMutex;
-		size_t m_AudioStreamIndex = -1;
+		//size_t m_AudioStreamIndex = -1;
 
-		std::unique_ptr<MBPlay::OctetStreamDataFetcher> m_SongDataFetcher = nullptr;
+		std::atomic<bool> m_InputLoaded{ false };
+		std::atomic<bool> m_ErrorLoadingInput{ false };
+		std::atomic<double> m_SongDuration{ -1 };
+		std::atomic<double> m_SongPosition{ -1 };
+
 
 		void p_AudioThread();
 	public:
@@ -151,6 +163,7 @@ namespace MBRadio
 		void SetInputSource(Song SongToPlay);
 
 		bool InputLoaded();
+		bool InputAvailable();
 
 		void Pause();
 		void Play();
@@ -229,6 +242,9 @@ namespace MBRadio
 		MBRadio(MBCLI::MBTerminal* TerminalToUse);
 		void PlaySong(Song SongToplay);
 		void Update();
+
+		void ClearSongs();
+		void RemoveSong(size_t SongIndex);
 
 		void AddSong(Song SongToAdd, size_t SongPosition = -1);
 		void SetShuffle(bool IsShuffle);
