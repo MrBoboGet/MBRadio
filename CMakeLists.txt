@@ -28,6 +28,7 @@ set(MBPM_DEPENDENCIES
 	"glfw"
 	"gl3w"
 	"MBCLI"
+	"DiscordSDK"
 )
 set(MBPM_SystemLibraries
 Ws2_32.lib
@@ -149,9 +150,25 @@ macro(MBPM_ApplyTargetConfiguration TargetToUpdate LinkType BuildType)
 	MBPM_SetTargetIncludeDirectories(${TargetToUpdate})
 endmacro()
 ##END MBPM_VARIABLES
+
 set(PROJECT_SOURCES 
 
 	"${CMAKE_CURRENT_SOURCE_DIR}//MBRadioMain.cpp"
+
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/achievement_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/activity_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/application_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/image_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/lobby_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/network_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/overlay_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/relationship_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/storage_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/store_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/user_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/voice_manager.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/core.cpp"
+	# q"${CMAKE_CURRENT_SOURCE_DIR}/Temp/types.cpp"
 )
 set(PROJECT_HEADERS 
 	"${CMAKE_CURRENT_SOURCE_DIR}//MBRadio.h"
@@ -183,3 +200,5 @@ add_executable("mbradio" ${EXECUTABLE_SOURCES})
 MBPM_ApplyTargetConfiguration("mbradio" "STATIC" "DEBUG")
 target_compile_features("mbradio" PUBLIC cxx_std_17)
 MBPM_LinkTargetPacketLibraries("mbradio")
+message(${MBPM_TARGET_EXTPACKET_LIBRARIES})
+target_link_libraries("mbradio" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/discord_game_sdk.dll.lib")

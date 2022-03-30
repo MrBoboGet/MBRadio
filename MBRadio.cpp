@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <random>
+#include <DiscordSDK/cpp/discord.h>
 namespace MBRadio
 {
 	void h_InferNameAndArtist(Song& SongToModify)
@@ -702,11 +703,43 @@ namespace MBRadio
 	//END PlayListWindow
 
 	//BEGIN SongWindow
+#ifdef MBRADIO_DISCORDINTEGRATION
+	struct DiscordImpl
+	{
+		Song CurrentSong;
+		discord::Activity Activity;
+		discord::Core* Core;
+	};
+	void SongWindow::p_FreeDiscordImpl(void*)
+	{
+		//lowkey inget man kan göra...
+
+	}
+#endif // 
+
+
 	SongWindow::SongWindow(MBRadio* AssociatedRadio)
 	{
 		m_AssociatedRadio = AssociatedRadio;
 		m_Playbacker = std::unique_ptr<SongPlaybacker>(new SongPlaybacker());
+#ifdef MBRADIO_DISCORDINTEGRATION
+		m_DiscordImpl = std::unique_ptr<void, void(*)(void*)>(new DiscordImpl(), p_FreeDiscordImpl);
+		DiscordImpl* Impl = (DiscordImpl*)m_DiscordImpl.get();
+		auto result = discord::Core::Create(958468397505576971, DiscordCreateFlags_NoRequireDiscord, &Impl->Core);
+		Impl->Activity.SetType(discord::ActivityType::Listening);
+
+		uint64_t CurrentTime = std::time(nullptr);
+		Impl->Activity.GetTimestamps().SetStart(CurrentTime);
+		Impl->Activity.SetState("Idling");
+		Impl->Activity.SetDetails("");
+		Impl->Activity.GetAssets().SetLargeImage("gnutophat");
+
+		Impl->Core->ActivityManager().UpdateActivity(Impl->Activity, [](discord::Result result) {
+
+		});
+#endif // 
 		m_UpdateThread = std::thread(&SongWindow::p_UpdateHandler, this);
+
 	}
 	bool SongWindow::Updated()
 	{
@@ -862,12 +895,31 @@ namespace MBRadio
 				}
 				if (m_Playbacker->GetSongDuration() != -1)
 				{
-					if (std::abs(m_Playbacker->GetSongDuration() - m_Playbacker->GetSongPosition()) <= 0.01)
+					if (std::abs(NewElapsed - NewTotalTime) <= 0.01 || NewElapsed > NewTotalTime)
 					{
 						m_AssociatedRadio->PlaySong(m_AssociatedRadio->GetNextSong());
 					}
 				}
+#ifdef MBRADIO_DISCORDINTEGRATION
+				Song CurrentSong = m_Playbacker->GetCurrentSong();
+				DiscordImpl* Impl = (DiscordImpl*)m_DiscordImpl.get();
+				if (CurrentSong != Impl->CurrentSong)
+				{
+					Impl->CurrentSong = CurrentSong;
+					Impl->Activity.SetState(CurrentSong.Artist.c_str());
+					Impl->Activity.SetDetails(CurrentSong.SongName.c_str());
+					Impl->Activity.GetTimestamps().SetStart(std::time(nullptr) - uint64_t(NewElapsed));
+					Impl->Core->ActivityManager().UpdateActivity(Impl->Activity, [](discord::Result result) {
+
+					});
+				}
+#endif // MBRADIO_DISCORDINTEGRATION
 			}
+#ifdef MBRADIO_DISCORDINTEGRATION
+			DiscordImpl* Impl = (DiscordImpl*)m_DiscordImpl.get();
+			Impl->Core->RunCallbacks();
+#endif // MBRADIO_DISCORDINTEGRATION
+
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));
 		}
 	}
@@ -913,6 +965,7 @@ namespace MBRadio
 		MBMedia::AudioParameters CurrentParameters;
 		std::unique_ptr<MBPlay::OctetStreamDataFetcher> SongDataFetcher;
 		size_t AudioStreamIndex = -1;
+		size_t OutputStreamSampleOffset = 0;
 		while (!m_Stopping.load())
 		{
 			if (m_SongRequested.load())
@@ -964,6 +1017,7 @@ namespace MBRadio
 					m_ErrorLoadingInput.store(true);
 				}
 				m_InputLoaded.store(true);
+				OutputStreamSampleOffset = 0;
 			}
 
 			if (m_SeekRequested.load())
@@ -980,9 +1034,9 @@ namespace MBRadio
 						int64_t SongTimebasePosition = (m_SeekPosition * StreamTimebase.den) / StreamTimebase.num;
 						SongDataFetcher->SeekPosition(AudioStreamIndex, SongTimebasePosition);
 
-
 						m_SongPosition.store(m_SeekPosition);
 						CurrentInputStream = std::unique_ptr<MBMedia::AudioStream>(new MBMedia::AudioInputConverter(SongDataFetcher->GetAudioStream(AudioStreamIndex), m_OutputDevice->GetOutputParameters()));
+						OutputStreamSampleOffset = m_SeekPosition*CurrentInputStream->GetAudioParameters().SampleRate;
 					}
 				}
 			}
@@ -997,6 +1051,7 @@ namespace MBRadio
 				{
 					MBMedia::AudioBuffer TempBuffer = MBMedia::AudioBuffer(m_OutputDevice->GetOutputParameters(), 4096);
 					size_t RecievedSamples = CurrentInputStream->GetNextSamples(TempBuffer.GetData(), 4096, 0);
+					OutputStreamSampleOffset += RecievedSamples;
 					m_OutputDevice->InsertAudioData(TempBuffer.GetData(), RecievedSamples);
 				}
 				//milli sekunder
@@ -1006,9 +1061,9 @@ namespace MBRadio
 				std::unique_lock<std::mutex> WaitLock(m_RequestMutex);
 				m_RequestConditional.wait_for(WaitLock, std::chrono::milliseconds(Milli));
 				
-				MBMedia::TimeBase StreamTimebase = SongDataFetcher->GetStreamInfo(AudioStreamIndex).StreamTimebase;
-				int64_t TimebaseDuration = SongDataFetcher->GetStreamTimestamp(AudioStreamIndex);
-				double SongPosition = (TimebaseDuration * StreamTimebase.num) / double(StreamTimebase.den);
+				//MBMedia::TimeBase StreamTimebase = SongDataFetcher->GetStreamInfo(AudioStreamIndex).StreamTimebase;
+				//int64_t TimebaseDuration = SongDataFetcher->GetStreamTimestamp(AudioStreamIndex);
+				double SongPosition = double(OutputStreamSampleOffset) / CurrentInputStream->GetAudioParameters().SampleRate;
 				m_SongPosition.store(SongPosition);
 			}
 			if(AudioStreamIndex == -1)
@@ -1046,6 +1101,12 @@ namespace MBRadio
 		m_SongRequested.store(true);
 		m_RequestConditional.notify_one();
 		m_RequestedSong = std::move(SongToPlay);
+		m_CurrentSong = m_RequestedSong;
+	}
+	Song SongPlaybacker::GetCurrentSong()
+	{
+		std::lock_guard<std::mutex> SongRequestMutex(m_RequestMutex);
+		return(m_CurrentSong);
 	}
 	bool SongPlaybacker::InputAvailable()
 	{

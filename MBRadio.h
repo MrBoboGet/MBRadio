@@ -2,6 +2,7 @@
 #include <MBPlay/MBPlay.h>
 #include <MBAudioEngine/MBAudioDevices.h>
 #include <MBParsing/MBParsing.h>
+#include "MBRadio_Defines.h"
 namespace MBRadio
 {
 	class MBRadio;
@@ -11,6 +12,21 @@ namespace MBRadio
 		std::string SongURI = "";
 		std::string SongName = "";
 		std::string Artist = "";
+
+		bool operator==(Song const& rhs)
+		{
+			bool ReturnValue = true;
+			if (SongURI != rhs.SongURI || SongName != rhs.SongURI || Artist != rhs.Artist)
+			{
+				ReturnValue = false;
+			}
+
+			return(ReturnValue);
+		}
+		bool operator!=(Song const& rhs)
+		{
+			return(!(*this == rhs));
+		}
 	};
 	class Playlist
 	{
@@ -155,12 +171,15 @@ namespace MBRadio
 		std::atomic<double> m_SongDuration{ -1 };
 		std::atomic<double> m_SongPosition{ -1 };
 
-
+		Song m_CurrentSong;
+		
 		void p_AudioThread();
 	public:
 		SongPlaybacker();
 
 		void SetInputSource(Song SongToPlay);
+	
+		Song GetCurrentSong();
 
 		bool InputLoaded();
 		bool InputAvailable();
@@ -194,6 +213,11 @@ namespace MBRadio
 		std::thread m_UpdateThread;
 		std::atomic<bool> m_Stopping{ false };
 		void p_UpdateHandler();
+#ifdef MBRADIO_DISCORDINTEGRATION
+		static void p_FreeDiscordImpl(void*);
+		std::unique_ptr<void, void (*)(void*)> m_DiscordImpl = std::unique_ptr<void, void(*)(void*)>(nullptr,&SongWindow::p_FreeDiscordImpl);
+#endif // 
+
 		//std::unique_ptr<MBMedia::AudioStream> m_InputStream = nullptr;
 		//std::unique_ptr<MBAE::AudioOutputDevice> m_OutputDevice = nullptr;
 	public:

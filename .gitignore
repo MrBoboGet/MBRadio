@@ -1,4 +1,6 @@
 /out/
 /MBPM_Builds/
-/MBPM_FileInfo/
+/MBPM_FileInfo
 /.vs/
+/discord_game_sdk.dll
+/discord_game_sdk.dll.lib
