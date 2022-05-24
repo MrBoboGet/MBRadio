@@ -29,6 +29,7 @@ set(MBPM_DEPENDENCIES
 	"gl3w"
 	"MBCLI"
 	"DiscordSDK"
+	"MrPostOGet"
 )
 set(MBPM_SystemLibraries
 Ws2_32.lib

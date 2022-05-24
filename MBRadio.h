@@ -79,6 +79,8 @@ namespace MBRadio
 
 		void RemoveSong(size_t SongIndex);
 		void ClearSongs();
+		void Scroll(int ScrollIndex);
+		int GetCurrentDisplayIndex() const;
 
 		void AddSong(Song SongToAdd,size_t SongPosition = -1);
 		void SetShuffle(bool IsShuffle);
@@ -127,6 +129,9 @@ namespace MBRadio
 
 		MBCLI::LineBuffer m_OutputBuffer;
 		MBCLI::DefaultInputReciever m_InputLineReciever;
+
+		std::vector<std::string> m_PreviousCommands;
+		size_t m_CurrentCommandIndex = -1;
 
 		MBRadio* m_AssociatedRadio = nullptr;
 
@@ -266,7 +271,11 @@ namespace MBRadio
 		MBRadio(MBCLI::MBTerminal* TerminalToUse);
 		void PlaySong(Song SongToplay);
 		void Update();
-
+		
+		void SetPause(bool PauseStatus);
+		bool GetPause();
+		int GetSongDisplayIndex();
+		void Scroll(int SongIndex);
 		void ClearSongs();
 		void RemoveSong(size_t SongIndex);
 

@@ -5,5 +5,5 @@
 	"OutputConfigurations":["StaticDebug","StaticRelease"],
 	"OutputTargetNames":{"StaticRelease":"MBRadio_SR","StaticDebug":"MBRadio_SD"},
 	"ExportedExecutableTargets":["mbradio"],
-	"Dependancies": [ "MBMedia", "MBCLI", "MrBoboSockets", "DiscordSDK", "MBPlay" ]
+	"Dependancies": [ "MBMedia", "MBCLI", "MrBoboSockets","MrPostOGet", "DiscordSDK", "MBPlay" ]
 }

@@ -1,0 +1,3 @@
+Får problem när jag spelar  White Roses quillava, durationen raporteras som väldigt negativ
+
+Problem med att spela 4Skips-Missing you, durationen är inte tillgänglig
