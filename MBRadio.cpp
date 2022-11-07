@@ -183,11 +183,11 @@ namespace MBRadio
 
 		if (m_IsActive && m_ResultWindow == nullptr)
 		{
-			CommandBuffer.WriteBorder(CommandBuffer.Width, CommandBuffer.Height, 0, 0, MBCLI::ANSITerminalColor::BrightGreen);
+			CommandBuffer.WriteBorder(CommandBuffer.GetWidth(), CommandBuffer.GetHeight(), 0, 0, MBCLI::ANSITerminalColor::BrightGreen);
 		}
 		else 
 		{
-			CommandBuffer.WriteBorder(CommandBuffer.Width, CommandBuffer.Height, 0, 0, MBCLI::ANSITerminalColor::White);
+			CommandBuffer.WriteBorder(CommandBuffer.GetWidth(), CommandBuffer.GetHeight(), 0, 0, MBCLI::ANSITerminalColor::White);
 		}
 		std::vector<MBUnicode::GraphemeCluster> const& CommandCharacters = m_InputLineReciever.GetLineBuffer();
 		size_t CurrentRowIndex = CommandHeight - 2;
@@ -203,7 +203,10 @@ namespace MBRadio
 					break;
 				}
 			}
-			CommandBuffer.BufferCharacters[CurrentRowIndex][CurrentColumnIndex].Character = CommandCharacters[i];
+			//CommandBuffer.BufferCharacters[CurrentRowIndex][CurrentColumnIndex].Character = CommandCharacters[i];
+            MBCLI::TerminalCharacter CharacterToWrite;
+            CharacterToWrite.Character = CommandCharacters[i];
+            CommandBuffer.WriteCharacters(CurrentRowIndex,CurrentColumnIndex,&CharacterToWrite,&CharacterToWrite+1);
 			CurrentColumnIndex++;
 		}
 
@@ -625,7 +628,7 @@ namespace MBRadio
 	{
 		std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
 		MBCLI::TerminalWindowBuffer ReturnValue(m_Width,m_Height);
-		ReturnValue.WriteBorder(ReturnValue.Width, ReturnValue.Height, 0, 0, MBCLI::ANSITerminalColor::BrightWhite);		
+		ReturnValue.WriteBorder(ReturnValue.GetWidth(), ReturnValue.GetWidth(), 0, 0, MBCLI::ANSITerminalColor::BrightWhite);		
 		int MaxSongs = m_Height - 2;
 		int FirstSongIndex = m_SongDisplayIndex >= 0 ? m_SongDisplayIndex : 0;
 		for (size_t i = FirstSongIndex; i < m_PlaylistSongs.size() && i-FirstSongIndex < MaxSongs; i++)
@@ -928,16 +931,16 @@ namespace MBRadio
 		//std::string ReturnValue = p_TimeToString(m_CurrentSongTimeInSecs) + "/" + p_TimeToString(m_CurrentSongTotalTimeInSecs)+" ";
 		MBCLI::TerminalWindowBuffer TimePart = p_GetTimeBuffer();
 		MBCLI::TerminalWindowBuffer ProgressPart = p_GetProgressBarString(m_CurrentSongTimeInSecs.load(), m_CurrentSongTotalTimeInSecs.load());
-		int TotalSize = TimePart.Width + 1 + ProgressPart.Width;
+		int TotalSize = TimePart.GetWidth() + 1 + ProgressPart.GetWidth();
 		int ColumnOffset = ((m_Width - TotalSize) / 2)+1;
 		ReturnValue.WriteBuffer(TimePart, 0, ColumnOffset);
-		ReturnValue.WriteBuffer(ProgressPart, 0, ColumnOffset + 1 + TimePart.Width);
+		ReturnValue.WriteBuffer(ProgressPart, 0, ColumnOffset + 1 + TimePart.GetWidth());
 		return(ReturnValue);
 	}
 	MBCLI::TerminalWindowBuffer SongWindow::GetDisplay()
 	{
 		MBCLI::TerminalWindowBuffer ReturnValue(m_Width, m_Height);
-		ReturnValue.WriteBorder(ReturnValue.Width, ReturnValue.Height, 0, 0, MBCLI::ANSITerminalColor::BrightWhite);
+		ReturnValue.WriteBorder(ReturnValue.GetWidth(), ReturnValue.GetHeight(), 0, 0, MBCLI::ANSITerminalColor::BrightWhite);
 		//ReturnValue.WriteCharacters((m_Height - 2), MBCLI::TextJustification::Middle, "No song playing");
 		std::string SongInfoText = "No song playing";
 		if (m_Playbacker->InputLoaded() && m_Playbacker->InputAvailable())
