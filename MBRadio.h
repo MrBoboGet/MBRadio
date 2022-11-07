@@ -156,6 +156,7 @@ namespace MBRadio
 	{
 	private:
 		std::atomic<bool> m_Stopping{ false };
+
 		std::atomic<bool> m_Play{ true };
 		
 		std::thread m_AudioThread;

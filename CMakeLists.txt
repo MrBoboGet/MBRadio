@@ -3,16 +3,23 @@ set(PROJECT_NAME "MBRadio")
 ##BEGIN MBPM_VARIABLES
 set(MBPM_DEPENDENCIES 
 	"MBPlay"
+	"MrPostOGet"
 	"MrBoboSockets"
 	"MBMime"
-	"MBParsing"
-	"MBUtility"
-	"MBUnicode"
-	"MrBigInt"
+	"MBGraphicsEngine"
 	"MBCrypto"
-	"cryptopp"
+	"MBCLI"
 	"MBAudioEngine"
+	"assimp"
+	"MrBigInt"
+	"MBUnicode"
+	"MBParsing"
 	"MBMedia"
+	"zlib"
+	"stb"
+	"irrxml"
+	"glfw"
+	"gl3w"
 	"ffmpeg#avformat"
 	"ffmpeg#avcodec"
 	"ffmpeg#avdevice"
@@ -20,16 +27,10 @@ set(MBPM_DEPENDENCIES
 	"ffmpeg#avutil"
 	"ffmpeg#swresample"
 	"ffmpeg#swscale"
-	"MBGraphicsEngine"
-	"stb"
-	"assimp"
-	"irrxml"
-	"zlib"
-	"glfw"
-	"gl3w"
-	"MBCLI"
+	"cryptopp"
+	"MBUtility"
+	"MBSystem"
 	"DiscordSDK"
-	"MrPostOGet"
 )
 set(MBPM_SystemLibraries
 Ws2_32.lib
@@ -41,23 +42,20 @@ Mfuuid.lib
 	Strmiids.lib
 )
 set(MBPM_DependanciesIncludeDirectories
-$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/ffmpeg//
 $ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/assimp//include/
 $ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/gl3w//include/
+$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/ffmpeg//
 )
 set(MBPM_TARGET_EXTPACKET_LIBRARIES )
 set(MBPM_TARGET_COMPILE_OPTIONS )
 set(MBPM_TARGET_LINK_OPTIONS )
-#MBPM_Functions#variables MBPM_DEPENDENCIES
-#MBPM_TARGET_EXTPACKET_LIBRARIES
-#MBPM_TARGET_COMPILE_OPTIONS
-#MBPM_TARGET_LINK_OPTIONS
-#Environment variables MBPM_PACKETS_INSTALL_DIRECTORY
-set(MBPM_CXX_FLAGS ${CMAKE_CXX_FLAGS})
-set(MBPM_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-set(MBPM_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
-macro(MBPM_UpdateLibraries TargetToUpdate LinkType BuildType)
-	set(MBPM_TARGET_EXTPACKET_LIBRARIES "")
+#MBPM_Functions
+set(MB_BUILD_TYPE "Debug") #Abstraction around CMAKE_BUILD_TYPE potentially being empty
+set(MBPM_EXTPACKETS_BUILD_DIRECTORIES )
+set(MBPM_EXTPACKETS_LIBRARIES)
+macro(MBPM_UpdateLibraries)
+	set(MBPM_EXTPACKETS_LIBRARIES "")
+	set(MBPM_EXTPACKETS_BUILD_DIRECTORIES "")
 	foreach(PACKET IN LISTS MBPM_DEPENDENCIES)
 		set(NewLibraryName "")
 		set(PacketName ${PACKET})
@@ -67,72 +65,35 @@ macro(MBPM_UpdateLibraries TargetToUpdate LinkType BuildType)
 			list(GET PACKET_PART_LIST 0 PacketName)
 			list(GET PACKET_PART_LIST 1 LibraryName)
 		endif()
-		set(NewLibraryToAdd "$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/${PacketName}/MBPM_Builds/")
-		if(${LinkType} STREQUAL "STATIC")
-			set(NewLibraryName "${LibraryName}_S")
-		elseif(${LinkType} STREQUAL "DYNAMIC")
-			set(NewLibraryName "${LibraryName}_D")
-		endif()
-		if(${BuildType} STREQUAL "DEBUG")
-			set(NewLibraryName "${NewLibraryName}D")
-		elseif(${BuildType} STREQUAL "RELEASE")
-			set(NewLibraryName "${NewLibraryName}R")
-		endif()
-		if(UNIX)
-			set(NewLibraryName "lib${NewLibraryName}.")
-			if(${LinkType} STREQUAL "STATIC")
-				set(NewLibraryName "${NewLibraryName}a")
-			else()
-				set(NewLibraryName "${NewLibraryName}so")
-			endif()
-		else()
-			if(${LinkType} STREQUAL "STATIC")
-				set(NewLibraryName "${NewLibraryName}.lib")
-			else()
-				set(NewLibraryName "${NewLibraryName}.dll")				
-			endif()
-		endif()
-		set(NewLibraryToAdd "${NewLibraryToAdd}${NewLibraryName}")
-		list(APPEND MBPM_TARGET_EXTPACKET_LIBRARIES ${NewLibraryToAdd})
+		set(NewLibraryDirectory "$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/${PacketName}/MBPM_Builds/${MB_BUILD_TYPE}/")
+		list(APPEND MBPM_EXTPACKETS_LIBRARIES ${LibraryName})
+		list(APPEND MBPM_EXTPACKETS_BUILD_DIRECTORIES ${NewLibraryDirectory})
 	endforeach()
 endmacro()
-
-macro(MBPM_UpdateTargetVariables TargetToUpdate LinkType BuildType)
-	MBPM_UpdateLibraries(${TargetToUpdate} ${LinkType} ${BuildType})
+set(MBPM_VariablesUpdated "FALSE")
+macro(MBPM_UpdateVariables)
+	if(${MBPM_VariablesUpdated} STREQUAL "FALSE")
+		if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "" AND DEFINED CMAKE_BUILD_TYPE)
+			set(MB_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+		endif()
+		MBPM_UpdateLibraries()
+	endif()	
+	set(MBPM_VariablesUpdated "TRUE")
 endmacro()
 
 macro(MBPM_UpdateOutput TargetToUpdate)
+	set(BuildDirectorySuffix ${MB_BUILD_TYPE})
 	set_target_properties(${TargetToUpdate} 
 	PROPERTIES 
-	ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/"
-	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/"
-	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/"
+	ARCHIVE_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/${BuildDirectorySuffix}/>
+	LIBRARY_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/${BuildDirectorySuffix}/>
+	RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/${BuildDirectorySuffix}/>
 	)
-	#set_target_properties(${TargetToUpdate} PROPERTIES PREFIX "")
-	#set_target_properties(${TargetToUpdate} PROPERTIES SUFFIX "")
-	set_target_properties(${TargetToUpdate} PROPERTIES OUTPUT_NAME ${TargetToUpdate})
-endmacro()
-
-macro(MBPM_SetTargetCompileOptions TargetToUpdate LinkType BuildType)
-	set(CMAKE_CXX_FLAGS " ")
-	set(CMAKE_CXX_FLAGS_DEBUG " ")
-	set(CMAKE_CXX_FLAGS_RELEASE " ")
-	set(CMAKE_C_FLAGS " ")
-	set(CMAKE_C_FLAGS_DEBUG " ")
-	set(CMAKE_C_FLAGS_RELEASE " ")
-
-	if(${BuildType} STREQUAL "DEBUG" AND ${LinkType} STREQUAL "STATIC")
-		set(NEW_TARGET_COMPILE_OPTIONS "${MBPM_CXX_FLAGS} ${MBPM_CXX_FLAGS_DEBUG}")
-	else()
-		set(NEW_TARGET_COMPILE_OPTIONS "${MBPM_CXX_FLAGS} ${MBPM_CXX_FLAGS_RELEASE}")
-	endif()
-	string(REPLACE " " ";" NEW_TARGET_COMPILE_OPTIONS_LIST ${NEW_TARGET_COMPILE_OPTIONS})
-	target_compile_options(${TargetToUpdate} PRIVATE ${NEW_TARGET_COMPILE_OPTIONS_LIST})
-	message(${TargetToUpdate} " Compiled with follwing flags: ""${NEW_TARGET_COMPILE_OPTIONS_LIST}")
 endmacro()
 
 macro(MBPM_LinkTargetPacketLibraries Target)
-	target_link_libraries(${Target} ${MBPM_TARGET_EXTPACKET_LIBRARIES})
+	target_link_directories(${Target} PRIVATE ${MBPM_EXTPACKETS_BUILD_DIRECTORIES})
+	target_link_libraries(${Target} ${MBPM_EXTPACKETS_LIBRARIES})
 	target_link_libraries(${Target} ${MBPM_SystemLibraries})
 endmacro()
 
@@ -144,11 +105,11 @@ macro(MBPM_SetTargetIncludeDirectories Target)
 	target_include_directories(${Target} PUBLIC ${MBPM_DependanciesIncludeDirectories})
 endmacro()
 
-macro(MBPM_ApplyTargetConfiguration TargetToUpdate LinkType BuildType)
-	MBPM_UpdateTargetVariables(${TargetToUpdate} ${LinkType} ${BuildType})
+macro(MBPM_ApplyConfiguration TargetToUpdate)
+	MBPM_UpdateVariables()
 	MBPM_UpdateOutput(${TargetToUpdate})
-	MBPM_SetTargetCompileOptions(${TargetToUpdate} ${LinkType} ${BuildType})
 	MBPM_SetTargetIncludeDirectories(${TargetToUpdate})
+	MBPM_LinkTargetPacketLibraries(${TargetToUpdate})
 endmacro()
 ##END MBPM_VARIABLES
 
@@ -187,19 +148,12 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBRadio_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBRadio_SD" "STATIC" "DEBUG")
-target_compile_features("MBRadio_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBRadio_SD" ${COMMON_LIBRARIES})
-
-add_library(MBRadio_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBRadio_SR" "STATIC" "RELEASE")
-target_compile_features("MBRadio_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBRadio_SR" ${COMMON_LIBRARIES})
+add_library(MBRadioLib STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MBRadioLib" "STATIC" "DEBUG")
+target_compile_features("MBRadioLib" PRIVATE cxx_std_17)
+target_link_libraries("MBRadioLib" ${COMMON_LIBRARIES})
 
 add_executable("mbradio" ${EXECUTABLE_SOURCES})
-MBPM_ApplyTargetConfiguration("mbradio" "STATIC" "DEBUG")
+MBPM_ApplyConfiguration("mbradio")
 target_compile_features("mbradio" PUBLIC cxx_std_17)
-MBPM_LinkTargetPacketLibraries("mbradio")
-message(${MBPM_TARGET_EXTPACKET_LIBRARIES})
 target_link_libraries("mbradio" PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/discord_game_sdk.dll.lib")

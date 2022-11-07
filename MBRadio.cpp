@@ -1,4 +1,5 @@
-#include <MBRadio.h>
+#include "MBRadio.h"
+#include "MBCLI/MBCLI.h"
 #include <mutex>
 #include <MrBoboSockets/MrBoboSockets.h>
 #include <MBAudioEngine/MBAudioEngine.h>
@@ -8,7 +9,7 @@
 
 #include <algorithm>
 #include <random>
-#include <DiscordSDK/cpp/discord.h>
+//#include <DiscordSDK/cpp/discord.h>
 
 #include <MrPostOGet/MrPostOGet.h>
 namespace MBRadio
@@ -182,11 +183,11 @@ namespace MBRadio
 
 		if (m_IsActive && m_ResultWindow == nullptr)
 		{
-			CommandBuffer.WriteBorder(CommandBuffer.Width, CommandBuffer.Height, 0, 0, MBCLI::TerminalColor::BrightGreen);
+			CommandBuffer.WriteBorder(CommandBuffer.Width, CommandBuffer.Height, 0, 0, MBCLI::ANSITerminalColor::BrightGreen);
 		}
 		else 
 		{
-			CommandBuffer.WriteBorder(CommandBuffer.Width, CommandBuffer.Height, 0, 0, MBCLI::TerminalColor::White);
+			CommandBuffer.WriteBorder(CommandBuffer.Width, CommandBuffer.Height, 0, 0, MBCLI::ANSITerminalColor::White);
 		}
 		std::vector<MBUnicode::GraphemeCluster> const& CommandCharacters = m_InputLineReciever.GetLineBuffer();
 		size_t CurrentRowIndex = CommandHeight - 2;
@@ -624,7 +625,7 @@ namespace MBRadio
 	{
 		std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
 		MBCLI::TerminalWindowBuffer ReturnValue(m_Width,m_Height);
-		ReturnValue.WriteBorder(ReturnValue.Width, ReturnValue.Height, 0, 0, MBCLI::TerminalColor::BrightWhite);		
+		ReturnValue.WriteBorder(ReturnValue.Width, ReturnValue.Height, 0, 0, MBCLI::ANSITerminalColor::BrightWhite);		
 		int MaxSongs = m_Height - 2;
 		int FirstSongIndex = m_SongDisplayIndex >= 0 ? m_SongDisplayIndex : 0;
 		for (size_t i = FirstSongIndex; i < m_PlaylistSongs.size() && i-FirstSongIndex < MaxSongs; i++)
@@ -936,7 +937,7 @@ namespace MBRadio
 	MBCLI::TerminalWindowBuffer SongWindow::GetDisplay()
 	{
 		MBCLI::TerminalWindowBuffer ReturnValue(m_Width, m_Height);
-		ReturnValue.WriteBorder(ReturnValue.Width, ReturnValue.Height, 0, 0, MBCLI::TerminalColor::BrightWhite);
+		ReturnValue.WriteBorder(ReturnValue.Width, ReturnValue.Height, 0, 0, MBCLI::ANSITerminalColor::BrightWhite);
 		//ReturnValue.WriteCharacters((m_Height - 2), MBCLI::TextJustification::Middle, "No song playing");
 		std::string SongInfoText = "No song playing";
 		if (m_Playbacker->InputLoaded() && m_Playbacker->InputAvailable())
@@ -1105,7 +1106,6 @@ namespace MBRadio
 				m_InputLoaded.store(true);
 				OutputStreamSampleOffset = 0;
 			}
-
 			if (m_SeekRequested.load())
 			{
 				//bara denna tråd jkan ändra AudioStreamIndex
@@ -1130,6 +1130,7 @@ namespace MBRadio
 			{
 				continue;
 			}
+
 			if (m_OutputDevice->GetCurrentOutputBufferSize() < 4096 && m_Play.load() && AudioStreamIndex != -1)
 			{
 				//eftersom det bara är den här tråden som kan ändra på DataFetcher, och alla andra trådar bara läser från tråden behöver vi inte oroa oss för race conditions
@@ -1157,6 +1158,12 @@ namespace MBRadio
 				std::unique_lock<std::mutex> WaitLock(m_RequestMutex);
 				m_RequestConditional.wait(WaitLock);
 			}
+			std::unique_lock<std::mutex> WaitLock(m_RequestMutex);
+			if (m_Play.load() == false)
+			{
+				uint64_t Milli = (((4096 * 1000) * 3) / 4) / CurrentParameters.SampleRate;
+				m_RequestConditional.wait_for(WaitLock, std::chrono::milliseconds(Milli));
+			}
 		}
 	}
 	SongPlaybacker::SongPlaybacker()
@@ -1171,11 +1178,14 @@ namespace MBRadio
 	}
 	void SongPlaybacker::Pause()
 	{
+		std::lock_guard<std::mutex> Lock(m_RequestMutex);
 		m_Play.store(false);
 	}
 	void SongPlaybacker::Play()
 	{
+		std::lock_guard<std::mutex> Lock(m_RequestMutex);
 		m_Play.store(true);
+		m_RequestConditional.notify_one();
 	}
 	bool SongPlaybacker::Paused()
 	{
@@ -1267,6 +1277,20 @@ namespace MBRadio
 		while (true)
 		{
 			MBCLI::ConsoleInput NewInput = m_AssociatedTerminal->ReadNextInput();
+			//DEBUG
+			//if (NewInput.SpecialInput != MBCLI::SpecialKey::Null)
+			//{
+			//	std::cout << "Special: " << std::dec << int(NewInput.SpecialInput) << std::endl;
+			//	continue;
+			//}
+			//std::string OutputString = NewInput.CharacterInput.ToString();
+			//for (char Character : OutputString)
+			//{
+			//	std::cout << std::hex << int(Character) << std::endl;
+			//}
+			//std::cout << "KeyModifier" << int(NewInput.KeyModifiers) << std::endl;
+			//continue;
+			//DEBUG
 			if (NewInput.KeyModifiers & uint64_t(MBCLI::KeyModifier::CTRL))
 			{
 				if (NewInput.CharacterInput == MBCLI::CTRL('p'))

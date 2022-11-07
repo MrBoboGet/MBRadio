@@ -5,7 +5,7 @@
 #include <MrBoboSockets/MrBoboSockets.h>
 #include <MBMedia/MBMedia.h>
 
-#include <DiscordSDK/cpp/discord.h>
+//#include <DiscordSDK/cpp/discord.h>
 
 int main(int argc, const char** argv)
 {

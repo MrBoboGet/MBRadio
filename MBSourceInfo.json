@@ -1,0 +1,38 @@
+{
+    "Dependancies": 
+    [
+        "MBMedia",
+        "MBCLI",
+        "MrBoboSockets",
+        "MrPostOGet",
+        "MBPlay"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MBRadioLib": 
+        {
+            "OutputName": "MBRadio",
+            "Sources": 
+            [
+                "/MBRadio.cpp"
+            ],
+            "TargetType": "Library"
+        },
+        "MBRadio": 
+        {
+            "OutputName": "MBRadio",
+            "Sources": 
+            [
+                "/MBRadio.cpp",
+                "/MBRadioMain.cpp"
+            ],
+            "TargetType": "Executable"
+        }
+    }
+}

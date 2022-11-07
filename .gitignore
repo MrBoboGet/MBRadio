@@ -4,3 +4,6 @@
 /.vs/
 /discord_game_sdk.dll
 /discord_game_sdk.dll.lib
+/MBPM_BuildFiles/
+.*
+!.gitignore

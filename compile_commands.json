@@ -1,0 +1,26 @@
+[
+    {
+        "arguments": 
+        [
+            "clang++",
+            "-std=c++17",
+            "-c",
+            "MBRadio.cpp",
+            "--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY//"
+        ],
+        "directory": "C:\\Users\\emanu\\Desktop\\Program\\C++\\MBRadio\\",
+        "file": "MBRadio.cpp"
+    },
+    {
+        "arguments": 
+        [
+            "clang++",
+            "-std=c++17",
+            "-c",
+            "MBRadioMain.cpp",
+            "--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY//"
+        ],
+        "directory": "C:\\Users\\emanu\\Desktop\\Program\\C++\\MBRadio\\",
+        "file": "MBRadioMain.cpp"
+    }
+]
