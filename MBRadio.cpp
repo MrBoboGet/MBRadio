@@ -632,7 +632,7 @@ namespace MBRadio
     {
         std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
         MBCLI::TerminalWindowBuffer ReturnValue(m_Width,m_Height);
-        ReturnValue.WriteBorder(ReturnValue.GetWidth(), ReturnValue.GetWidth(), 0, 0, MBCLI::ANSITerminalColor::BrightWhite);        
+        ReturnValue.WriteBorder(ReturnValue.GetWidth(), ReturnValue.GetHeight(), 0, 0, MBCLI::ANSITerminalColor::BrightWhite);        
         int MaxSongs = m_Height - 2;
         int FirstSongIndex = m_SongDisplayIndex >= 0 ? m_SongDisplayIndex : 0;
         for (size_t i = FirstSongIndex; i < m_PlaylistSongs.size() && i-FirstSongIndex < MaxSongs; i++)
@@ -915,6 +915,10 @@ namespace MBRadio
         }
         int ProgressedCharacters = CirclePosition;
         int RemainingCharacters = TotalProgressBarSize - ProgressedCharacters-1;
+        if(RemainingCharacters < 0)
+        {
+            RemainingCharacters = 0;   
+        }
         if (CirclePosition > 0)
         {
             ReturnValue.SetWriteColor(MBCLI::ANSITerminalColor::Green);

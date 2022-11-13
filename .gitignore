@@ -6,4 +6,5 @@
 /discord_game_sdk.dll.lib
 /MBPM_BuildFiles/
 .*
+MBPM_FileInfo
 !.gitignore
