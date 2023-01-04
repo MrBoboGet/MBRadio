@@ -8,3 +8,6 @@
 .*
 MBPM_FileInfo
 !.gitignore
+/compile_commands.json
+/Notes.txt
+/CMakeLists.txt
