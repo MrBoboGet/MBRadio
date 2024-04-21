@@ -1,8 +1,10 @@
 #include <MBCLI/MBCLI.h>
-#include <MBPlay/MBPlay.h>
+#include <MBStreaming/MBStreaming.h>
 #include <MBAudioEngine/MBAudioDevices.h>
 #include <MBParsing/MBParsing.h>
 #include "MBRadio_Defines.h"
+
+#include "MBRConfig.h"
 namespace MBRadio
 {
     class MBRadio;
@@ -257,6 +259,7 @@ namespace MBRadio
         //får enbart kommas åt av p_UpdateWindow
         MBCLI::MBTerminal* m_AssociatedTerminal = nullptr;
         MBRadioWindowType m_ActiveWindow = MBRadioWindowType::REPL;
+        Config m_Config;
 
         void p_UpdateWindow();
 
@@ -269,11 +272,16 @@ namespace MBRadio
         PlayListWindow m_PlaylistWindow;
         REPLWindow m_REPLWindow;
 
-        static void p_WindowResizeCallback(void* Terminal,int NewWidth,int NewHeight);
+        void p_WindowResizeCallback(int NewWidth,int NewHeight);
     public:
         MBRadio(MBCLI::MBTerminal* TerminalToUse);
         void PlaySong(Song SongToplay);
         void Update();
+        
+        Config const& GetConfig()
+        {
+            return m_Config;   
+        }
         
         void SetPause(bool PauseStatus);
         bool GetPause();

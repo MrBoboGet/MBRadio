@@ -12,6 +12,7 @@
 //#include <DiscordSDK/cpp/discord.h>
 
 #include <MrPostOGet/MrPostOGet.h>
+#include <MBSystem/MBSystem.h>
 namespace MBRadio
 {
     void h_InferNameAndArtist(Song& SongToModify)
@@ -20,7 +21,7 @@ namespace MBRadio
         {
             return;
         }
-        MBPlay::URLStream URLParser(SongToModify.SongURI);
+        MBStreaming::URLStream URLParser(SongToModify.SongURI);
         if (URLParser.GetFilename() != "")
         {
             std::string NewArtist = "";
@@ -235,8 +236,9 @@ namespace MBRadio
     }
     std::string REPLWindow::p_GetMBSiteURL()
     {
-        //return("https://127.0.0.1");
-        return("https://mrboboget.se");
+        //return("https://mrboboget.se");
+        return m_AssociatedRadio->GetConfig().Server.Address;
+        //return("https://192.168.0.123");
     }
     std::vector<std::vector<std::string>> REPLWindow::p_GetQuerryResponse(std::string const& Host, std::string const& Querry, MBParsing::JSONObject VerificationData,MBError* OutError)
     {
@@ -246,10 +248,10 @@ namespace MBRadio
         DirectiveToSend["Directive"] = "QueryDatabase";
         DirectiveToSend["DirectiveArguments"] = std::map<std::string, MBParsing::JSONObject>({ {"Query",Querry} });
 
-        std::string HostURL = p_GetMBSiteURL();
 
         MrPostOGet::HTTPClient ClientToUse;
-        ClientToUse.ConnectToHost(HostURL);
+        //TODO hardcoded af, madafacking xd
+        ClientToUse.ConnectToHost(Host);
         MrPostOGet::HTTPRequestBody BodyToSend;
         BodyToSend.DocumentType = MBMIME::MIMEType::json;
         BodyToSend.DocumentData = DirectiveToSend.ToString();
@@ -422,7 +424,7 @@ namespace MBRadio
                 }
                 catch (std::exception const& e)
                 {
-                    m_OutputBuffer.AddLine("> Error parsing column index");
+                    m_OutputBuffer.AddLine("> Error parsing column index: "+std::string(e.what()));
                     return;
                 }
                 
@@ -1055,7 +1057,7 @@ namespace MBRadio
         std::unique_ptr<MBMedia::AudioStream> CurrentInputStream = nullptr;
         m_OutputDevice->Start();
         MBMedia::AudioParameters CurrentParameters;
-        std::unique_ptr<MBPlay::OctetStreamDataFetcher> SongDataFetcher;
+        std::unique_ptr<MBStreaming::OctetStreamDataFetcher> SongDataFetcher;
         size_t AudioStreamIndex = -1;
         size_t OutputStreamSampleOffset = 0;
         while (!m_Stopping.load())
@@ -1080,8 +1082,8 @@ namespace MBRadio
                     continue;
                 }
                 SongDataFetcher = nullptr;
-                MBPlay::URLStream URLParser(m_RequestedSong.SongURI);
-                SongDataFetcher = std::unique_ptr<MBPlay::OctetStreamDataFetcher>(new MBPlay::OctetStreamDataFetcher(URLParser.GetSearchableInputStream(), 5));
+                MBStreaming::URLStream URLParser(m_RequestedSong.SongURI);
+                SongDataFetcher = std::unique_ptr<MBStreaming::OctetStreamDataFetcher>(new MBStreaming::OctetStreamDataFetcher(URLParser.GetSearchableInputStream(), 5));
                 SongDataFetcher->WaitForStreamInfo();
                 for (size_t i = 0; i < SongDataFetcher->AvailableStreams(); i++)
                 {
@@ -1268,10 +1270,30 @@ namespace MBRadio
         : m_REPLWindow(this),m_SongWindow(this)
     {
         m_AssociatedTerminal = TerminalToUse;
+        //TODO hardcoded af xd xd xd
+        m_Config.Server.Address = "https://mrboboget.se";
+        std::filesystem::path ConfigPath = MBSystem::GetUserHomeDirectory()/".mbradio/config.json";
+        if(std::filesystem::exists(ConfigPath))
+        {
+            Config NewConfig;
+            try
+            {
+                MBError OutError = true;
+                auto StoredJSON = MBParsing::ParseJSONObject(ConfigPath,&OutError);
+                FromJSON(NewConfig,StoredJSON);
+                std::swap(NewConfig,m_Config);
+            }
+            catch(...)
+            {
+                   
+            }
+        }
+
+
         MBCLI::TerminalInfo Info = TerminalToUse->GetTerminalInfo();
         TerminalToUse->InitializeWindowMode();
         TerminalToUse->SetBufferRenderMode(true);
-        TerminalToUse->SetResizeCallback(MBRadio::p_WindowResizeCallback, this);
+        TerminalToUse->SetResizeCallback([this](int Width,int Height){p_WindowResizeCallback(Width,Height);});
 
         m_TerminalWidth = Info.Width;
         m_TerminalHeight = Info.Height;
@@ -1282,17 +1304,16 @@ namespace MBRadio
         m_REPLWindow.SetActiveWindow(true);
 
     }
-    void MBRadio::p_WindowResizeCallback(void* Terminal, int NewWidth, int NewHeight)
+    void MBRadio::p_WindowResizeCallback(int NewWidth, int NewHeight)
     {
-        MBRadio* RadioObject = (MBRadio*)Terminal;
         {
-            RadioObject->m_AssociatedTerminal->Clear();
-            std::lock_guard<std::mutex> Lock(RadioObject->m_InternalsMutex);
-            RadioObject->m_TerminalWidth = NewWidth;
-            RadioObject->m_TerminalHeight = NewHeight;
-            RadioObject->m_WindowBuffer = MBCLI::TerminalWindowBuffer(NewWidth, NewHeight);
+            m_AssociatedTerminal->Clear();
+            std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+            m_TerminalWidth = NewWidth;
+            m_TerminalHeight = NewHeight;
+            m_WindowBuffer = MBCLI::TerminalWindowBuffer(NewWidth, NewHeight);
         }
-        RadioObject->p_UpdateWindow();
+        p_UpdateWindow();
     }
     int MBRadio::Run()
     {
@@ -1300,6 +1321,7 @@ namespace MBRadio
         while (true)
         {
             MBCLI::ConsoleInput NewInput = m_AssociatedTerminal->ReadNextInput();
+
             //DEBUG
             //if (NewInput.SpecialInput != MBCLI::SpecialKey::Null)
             //{

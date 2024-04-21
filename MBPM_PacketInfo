@@ -1,9 +1,7 @@
 {
 	"PacketName":"MBRadio",
 	"Version":"0.1.0",
-	"Attributes":["Embeddable"],
-	"OutputConfigurations":["StaticDebug","StaticRelease"],
-	"OutputTargetNames":{"StaticRelease":"MBRadio_SR","StaticDebug":"MBRadio_SD"},
+	"Attributes":[],
 	"ExportedExecutableTargets":["mbradio"],
-	"Dependancies": [ "MBMedia", "MBCLI", "MrBoboSockets","MrPostOGet", "MBPlay" ]
+	"Dependancies": [ "MBMedia", "MBCLI", "MrBoboSockets","MrPostOGet", "MBStreaming","MBAudioEngine" ,"MBSystem"]
 }

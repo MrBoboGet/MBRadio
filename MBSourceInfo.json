@@ -2,6 +2,7 @@
     "Dependancies": 
     [
         "MBMedia",
+        "MBAudioEngine",
         "MBCLI",
         "MrBoboSockets",
         "MrPostOGet",
