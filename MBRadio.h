@@ -8,6 +8,8 @@
 
 
 #include <MBCLI/Window.h>
+
+#include <MBTUI/MBTUI.h>
 namespace MBRadio
 {
     class MBRadio;
@@ -114,10 +116,8 @@ namespace MBRadio
         std::unique_ptr<MBCLI::Window> m_ResultWindow = nullptr;
 
         MBCLI::LineBuffer m_OutputBuffer;
-        MBCLI::DefaultInputReciever m_InputLineReciever;
-
-        std::vector<std::string> m_PreviousCommands;
-        size_t m_CurrentCommandIndex = -1;
+        //MBCLI::DefaultInputReciever m_InputLineReciever;
+        MBTUI::REPL m_Repl;
 
         MBRadio* m_AssociatedRadio = nullptr;
 
@@ -128,6 +128,9 @@ namespace MBRadio
 
         MBParsing::JSONObject p_GetSavedMBSiteUserAuthentication();
         std::string p_GetMBSiteURL();
+
+        void p_HandleCommand(std::string const& Command);
+        static std::vector<std::string> p_Completions(MBTUI::REPL_Line const& Line);
     public:
         REPLWindow(MBRadio* AssociatedRadio);
 
@@ -255,6 +258,8 @@ namespace MBRadio
         SongWindow m_SongWindow;
         PlayListWindow m_PlaylistWindow;
         REPLWindow m_REPLWindow;
+
+        MBCLI::WindowManager m_WindowManager;
 
         void p_WindowResizeCallback(int NewWidth,int NewHeight);
     public:

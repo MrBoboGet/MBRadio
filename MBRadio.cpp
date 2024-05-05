@@ -129,6 +129,8 @@ namespace MBRadio
     REPLWindow::REPLWindow(MBRadio* AssociatedRadio)
     {
         m_AssociatedRadio = AssociatedRadio;
+        m_Repl.SetOnEnterFunc([&](std::string const& String){p_HandleCommand(String);});
+        m_Repl.AddCompletionFunc(p_Completions);
     }
     bool REPLWindow::Updated()
     {
@@ -153,7 +155,7 @@ namespace MBRadio
         if (m_ResultWindow == nullptr)
         {
             ReturnValue.Hidden = false;
-            int InputPosition = m_InputLineReciever.GetCursorPosition();
+            int InputPosition = m_Repl.GetCursorInfo().Position.ColumnIndex;
             int CommandHeight = (m_Height) / 3;
 
             int NumberOfLines = InputPosition / (m_Width - 2);
@@ -193,7 +195,7 @@ namespace MBRadio
         {
             CommandBuffer.WriteBorder(CommandBuffer.GetWidth(), CommandBuffer.GetHeight(), 0, 0, MBCLI::ANSITerminalColor::White);
         }
-        std::vector<MBUnicode::GraphemeCluster> const& CommandCharacters = m_InputLineReciever.GetLineBuffer();
+        std::vector<MBUnicode::GraphemeCluster> const& CommandCharacters = m_Repl.GetLineBuffer();
         size_t CurrentRowIndex = CommandHeight - 2;
         size_t CurrentColumnIndex = 1;
         for (size_t i = 0; i < CommandCharacters.size(); i++)
@@ -450,165 +452,133 @@ namespace MBRadio
             return;
         }
         m_Updated = true;
-        if (InputToHandle.CharacterInput != '\n' && InputToHandle.CharacterInput != "\r\n")
+        m_Repl.HandleInput(InputToHandle);
+    }
+    void REPLWindow::p_HandleCommand(std::string const& CurrentCommand)
+    {
+        //evaluate command egentligen, men nu bara läser vi av karaktärerna
+        m_OutputBuffer.AddLine(CurrentCommand);
+        if(CurrentCommand == "play")
         {
-            if (InputToHandle.SpecialInput == MBCLI::SpecialKey::Up)
-            {
-                if (m_CurrentCommandIndex == -1)
-                {
-                    m_CurrentCommandIndex = 0;
-                    std::string CurrentCommand = m_InputLineReciever.GetLineString();
-                    if (CurrentCommand != "")
-                    {
-                        m_PreviousCommands.push_back(std::move(CurrentCommand));
-                        m_CurrentCommandIndex += 1;
-                    }
-                }
-                m_CurrentCommandIndex += 1;
-                if (m_CurrentCommandIndex > m_PreviousCommands.size())
-                {
-                    m_CurrentCommandIndex = m_PreviousCommands.size();
-                }
-                if (m_CurrentCommandIndex > 0)
-                {
-                    m_InputLineReciever.Reset();
-                    m_InputLineReciever.InsertInput(m_PreviousCommands[m_PreviousCommands.size()-m_CurrentCommandIndex]);
-                }
-            }
-            if (InputToHandle.SpecialInput == MBCLI::SpecialKey::Down)
-            {
-                if (m_CurrentCommandIndex == 0 || m_CurrentCommandIndex == 1 || m_CurrentCommandIndex == -1)
-                {
-                    m_CurrentCommandIndex = -1;
-                }
-                else
-                {
-                    m_CurrentCommandIndex -= 1;
-                    m_InputLineReciever.Reset();
-                    m_InputLineReciever.InsertInput(m_PreviousCommands[m_PreviousCommands.size()- m_CurrentCommandIndex]);
-                }
-            }
-            if (InputToHandle.SpecialInput != MBCLI::SpecialKey::Down && InputToHandle.SpecialInput != MBCLI::SpecialKey::Up)
-            {
-                m_InputLineReciever.InsertInput(InputToHandle);
-            }
-        }     
-        else
+            m_AssociatedRadio->SetPause(false);
+        }
+        else if (CurrentCommand.substr(0, 5) == "play ")
         {
-            //evaluate command egentligen, men nu bara läser vi av karaktärerna
-            std::string CurrentCommand = m_InputLineReciever.GetLineString();
-            m_CurrentCommandIndex = -1;
-            m_PreviousCommands.push_back(CurrentCommand);
-
-
-            m_OutputBuffer.AddLine(m_InputLineReciever.GetLineString());
-            m_InputLineReciever.Reset();
-            if(CurrentCommand == "play")
+            std::string SongURL = CurrentCommand.substr(CurrentCommand.find(' ',0) + 1);
+            if (CurrentCommand[5] >= 48 && CurrentCommand[5] <= 57)
             {
-                m_AssociatedRadio->SetPause(false);
-            }
-            else if (CurrentCommand.substr(0, 5) == "play ")
-            {
-                std::string SongURL = CurrentCommand.substr(CurrentCommand.find(' ',0) + 1);
-                if (CurrentCommand[5] >= 48 && CurrentCommand[5] <= 57)
-                {
-                    int Index = -1;
-                    try
-                    {
-                        Index = std::stoi(SongURL);
-                    }
-                    catch(std::exception const& e)
-                    {
-                        return;
-                    }
-                    m_AssociatedRadio->SetCurrentSong(Index);
-                    m_AssociatedRadio->PlaySong(m_AssociatedRadio->GetNextSong());
-                }
-                else
-                {
-                    Song NewSong;
-                    NewSong.Artist = "";
-                    NewSong.SongName = "";
-                    NewSong.SongURI = std::move(SongURL);
-                    m_AssociatedRadio->PlaySong(std::move(NewSong));
-                }
-            }
-            else if (CurrentCommand.substr(0, 4) == "add ")
-            {
-                p_HandleAddCommand(CurrentCommand);
-            }
-            else if (CurrentCommand.substr(0, 5) == "query")
-            {
-                //hardcodat
-                p_HandleQuerryCommand(CurrentCommand);
-            }
-            else if (CurrentCommand.substr(0, 7) == "shuffle")
-            {
-                m_AssociatedRadio->SetShuffle(true);
-            }
-            else if (CurrentCommand.substr(0, 9) == "noshuffle")
-            {
-                m_AssociatedRadio->SetShuffle(false);
-            }
-            else if (CurrentCommand.substr(0, 5) == "clear")
-            {
-                m_AssociatedRadio->ClearSongs();
-            }
-            else if (CurrentCommand.substr(0, 5) == "pause")
-            {
-                m_AssociatedRadio->SetPause(!m_AssociatedRadio->GetPause());
-            }
-            else if (CurrentCommand.substr(0, 6) == "scroll")
-            {
-                int ScrollIndex = 0;
+                int Index = -1;
                 try
                 {
-                    size_t FirstSpace = CurrentCommand.find(' ');
-                    if (FirstSpace == CurrentCommand.npos)
-                    {
-                        m_OutputBuffer.AddLine("> Error in scroll command: scroll requires atleast 1 argumnet");
-                        return;
-                    }
-                    ScrollIndex = std::stoi(CurrentCommand.substr(FirstSpace+1));
+                    Index = std::stoi(SongURL);
                 }
-                catch(std::exception const e)
+                catch(std::exception const& e)
                 {
-                    m_OutputBuffer.AddLine("> Error in parsing scroll index: "+std::string(e.what()));
                     return;
                 }
-                m_AssociatedRadio->Scroll(ScrollIndex);
+                m_AssociatedRadio->SetCurrentSong(Index);
+                m_AssociatedRadio->PlaySong(m_AssociatedRadio->GetNextSong());
             }
-            else if (CurrentCommand.substr(0, 6) == "remove" || CurrentCommand[0] == 'r')
+            else
             {
-                std::vector<std::string> Arguments = MBUtility::Split(CurrentCommand, " ");
-                if (Arguments.size() < 2)
-                {
-                    m_OutputBuffer.AddLine("> Error in remove command: remove requires atleast 1 argument");
-                    return;
-                }
-                int SongIndex = 0;
-                try
-                {
-                    SongIndex = std::stoi(Arguments[1]);
-                }
-                catch (std::exception const& e)
-                {
-                    m_OutputBuffer.AddLine("> Error in parsing song index");
-                    return;
-                }
-                if (SongIndex < 0)
-                {
-                    m_OutputBuffer.AddLine("> Error in remove: song index can't be negative");
-                }
-                m_AssociatedRadio->RemoveSong(SongIndex);
-
-            }
-            else if (CurrentCommand == "n")
-            {
-                Song NewSong = m_AssociatedRadio->GetNextSong();
-                m_AssociatedRadio->PlaySong(NewSong);
+                Song NewSong;
+                NewSong.Artist = "";
+                NewSong.SongName = "";
+                NewSong.SongURI = std::move(SongURL);
+                m_AssociatedRadio->PlaySong(std::move(NewSong));
             }
         }
+        else if (CurrentCommand.substr(0, 4) == "add ")
+        {
+            p_HandleAddCommand(CurrentCommand);
+        }
+        else if (CurrentCommand.substr(0, 5) == "query")
+        {
+            //hardcodat
+            p_HandleQuerryCommand(CurrentCommand);
+        }
+        else if (CurrentCommand.substr(0, 7) == "shuffle")
+        {
+            m_AssociatedRadio->SetShuffle(true);
+        }
+        else if (CurrentCommand.substr(0, 9) == "noshuffle")
+        {
+            m_AssociatedRadio->SetShuffle(false);
+        }
+        else if (CurrentCommand.substr(0, 5) == "clear")
+        {
+            m_AssociatedRadio->ClearSongs();
+        }
+        else if (CurrentCommand.substr(0, 5) == "pause")
+        {
+            m_AssociatedRadio->SetPause(!m_AssociatedRadio->GetPause());
+        }
+        else if (CurrentCommand.substr(0, 6) == "scroll")
+        {
+            int ScrollIndex = 0;
+            try
+            {
+                size_t FirstSpace = CurrentCommand.find(' ');
+                if (FirstSpace == CurrentCommand.npos)
+                {
+                    m_OutputBuffer.AddLine("> Error in scroll command: scroll requires atleast 1 argumnet");
+                    return;
+                }
+                ScrollIndex = std::stoi(CurrentCommand.substr(FirstSpace+1));
+            }
+            catch(std::exception const e)
+            {
+                m_OutputBuffer.AddLine("> Error in parsing scroll index: "+std::string(e.what()));
+                return;
+            }
+            m_AssociatedRadio->Scroll(ScrollIndex);
+        }
+        else if (CurrentCommand.substr(0, 6) == "remove" || CurrentCommand[0] == 'r')
+        {
+            std::vector<std::string> Arguments = MBUtility::Split(CurrentCommand, " ");
+            if (Arguments.size() < 2)
+            {
+                m_OutputBuffer.AddLine("> Error in remove command: remove requires atleast 1 argument");
+                return;
+            }
+            int SongIndex = 0;
+            try
+            {
+                SongIndex = std::stoi(Arguments[1]);
+            }
+            catch (std::exception const& e)
+            {
+                m_OutputBuffer.AddLine("> Error in parsing song index");
+                return;
+            }
+            if (SongIndex < 0)
+            {
+                m_OutputBuffer.AddLine("> Error in remove: song index can't be negative");
+            }
+            m_AssociatedRadio->RemoveSong(SongIndex);
+
+        }
+        else if (CurrentCommand == "n")
+        {
+            Song NewSong = m_AssociatedRadio->GetNextSong();
+            m_AssociatedRadio->PlaySong(NewSong);
+        }
+    }
+    std::vector<std::string> REPLWindow::p_Completions(MBTUI::REPL_Line const& Line)
+    {
+        std::vector<std::string> ReturnValue;
+        if(Line.TokenIndex == 0)
+        {
+            ReturnValue = {"play","add","shuffle","noshuffle","clear","pause","scroll","remove"};
+        }
+        else if(Line.TokenIndex == 1)
+        {
+            if(Line.Tokens[0] == "add")
+            {
+                ReturnValue = {"query"};
+            }
+        }
+        return ReturnValue;
     }
     //END REPLWindow
 
@@ -690,6 +660,7 @@ namespace MBRadio
                 }
             }
         }
+        m_Updated = true;
     }
     void PlayListWindow::ClearSongs()
     {
@@ -706,6 +677,10 @@ namespace MBRadio
         if (ScrollIndex < 0)
         {
             ScrollIndex = 0;
+        }
+        if(m_SongDisplayIndex != ScrollIndex)
+        {
+            m_Updated = true;   
         }
         m_SongDisplayIndex = ScrollIndex;
     }
@@ -1298,6 +1273,8 @@ namespace MBRadio
         TerminalToUse->SetBufferRenderMode(true);
         TerminalToUse->SetResizeCallback([this](int Width,int Height){p_WindowResizeCallback(Width,Height);});
 
+
+
         m_TerminalWidth = Info.Width;
         m_TerminalHeight = Info.Height;
         m_REPLWindow.SetDimensions(MBCLI::Dimensions(m_TerminalWidth, m_TerminalHeight));
@@ -1306,6 +1283,25 @@ namespace MBRadio
         m_WindowBuffer = MBCLI::TerminalWindowBuffer(m_TerminalWidth, m_TerminalHeight);
         m_REPLWindow.SetFocus(true);
 
+        int SongHeight = 4;
+        int SongWidth = m_TerminalWidth;
+        int REPLHeight = m_TerminalHeight - SongHeight;
+        int REPLWidth = (m_TerminalWidth * 2) / 3;
+        int PlaylistHeight = REPLHeight;
+        int PlaylistWidth = m_TerminalWidth - REPLWidth;
+
+        std::unique_ptr<MBCLI::WindowManager> TopWindow = std::make_unique<MBCLI::WindowManager>();
+        TopWindow->SetVertical(false);
+        TopWindow->AddWindow(MBUtility::SmartPtr<MBCLI::Window>(&m_REPLWindow));
+        MBCLI::WindowStretchInfo ListStretch;
+        ListStretch.PercentSize = 1/float(3);
+        TopWindow->AddWindow(MBUtility::SmartPtr<MBCLI::Window>(&m_PlaylistWindow),ListStretch);
+        m_WindowManager.SetVertical(true);
+        m_WindowManager.AddWindow(std::move(TopWindow));
+        MBCLI::WindowStretchInfo BarStretch;
+        BarStretch.MinSize = 4;
+        m_WindowManager.AddWindow(MBUtility::SmartPtr<MBCLI::Window>(&m_SongWindow),BarStretch);
+        m_WindowManager.SetDimensions(MBCLI::Dimensions(m_TerminalWidth,m_TerminalHeight));
     }
     void MBRadio::p_WindowResizeCallback(int NewWidth, int NewHeight)
     {
@@ -1385,12 +1381,12 @@ namespace MBRadio
             {
                 m_PlaylistWindow.HandleInput(NewInput);
             }
-            bool WindowUpdated = false;
-            if (m_PlaylistWindow.Updated() || m_REPLWindow.Updated() || m_SongWindow.Updated())
-            {
-                WindowUpdated = true;
-            }
-            if (WindowUpdated)
+            //bool WindowUpdated = false;
+            //if (m_PlaylistWindow.Updated() || m_REPLWindow.Updated() || m_SongWindow.Updated())
+            //{
+            //    WindowUpdated = true;
+            //}
+            if(m_WindowManager.Updated())
             {
                 p_UpdateWindow();
             }
@@ -1451,38 +1447,25 @@ namespace MBRadio
     void MBRadio::p_UpdateWindow()
     {
         std::lock_guard<std::mutex> Lock(m_InternalsMutex);
-        int SongHeight = 4;
-        int SongWidth = m_TerminalWidth;
-        int REPLHeight = m_TerminalHeight - SongHeight;
-        int REPLWidth = (m_TerminalWidth * 2) / 3;
-        int PlaylistHeight = REPLHeight;
-        int PlaylistWidth = m_TerminalWidth - REPLWidth;
+        //int SongHeight = 4;
+        //int SongWidth = m_TerminalWidth;
+        //int REPLHeight = m_TerminalHeight - SongHeight;
+        //int REPLWidth = (m_TerminalWidth * 2) / 3;
+        //int PlaylistHeight = REPLHeight;
+        //int PlaylistWidth = m_TerminalWidth - REPLWidth;
 
-        m_SongWindow.SetDimensions( MBCLI::Dimensions(SongWidth, SongHeight));
-        m_PlaylistWindow.SetDimensions(MBCLI::Dimensions(PlaylistWidth, PlaylistHeight));
-        m_REPLWindow.SetDimensions(MBCLI::Dimensions(REPLWidth, REPLHeight));
 
-        m_WindowBuffer.WriteBuffer(m_SongWindow.GetBuffer(), 0, 0);
-        m_WindowBuffer.WriteBuffer(m_REPLWindow.GetBuffer(), SongHeight, 0);
-        m_WindowBuffer.WriteBuffer(m_PlaylistWindow.GetBuffer(), SongHeight, REPLWidth);
 
-        MBCLI::CursorInfo NewCursorInfo;
-        if (m_ActiveWindow == MBRadioWindowType::REPL)
-        {
-            NewCursorInfo = m_REPLWindow.GetCursorInfo();
-            NewCursorInfo.Position.RowIndex += SongHeight;
-        }
-        else if (m_ActiveWindow == MBRadioWindowType::Song)
-        {
-            NewCursorInfo = m_SongWindow.GetCursorInfo();
+        //m_SongWindow.SetDimensions( MBCLI::Dimensions(SongWidth, SongHeight));
+        //m_PlaylistWindow.SetDimensions(MBCLI::Dimensions(PlaylistWidth, PlaylistHeight));
+        //m_REPLWindow.SetDimensions(MBCLI::Dimensions(REPLWidth, REPLHeight));
 
-        }
-        else if (m_ActiveWindow == MBRadioWindowType::Playlist)
-        {
-            NewCursorInfo = m_PlaylistWindow.GetCursorInfo();
-            NewCursorInfo.Position.RowIndex += SongHeight;
-            NewCursorInfo.Position.ColumnIndex += REPLWidth;
-        }
+        //m_WindowBuffer.WriteBuffer(m_SongWindow.GetBuffer(), 0, 0);
+        //m_WindowBuffer.WriteBuffer(m_REPLWindow.GetBuffer(), SongHeight, 0);
+        //m_WindowBuffer.WriteBuffer(m_PlaylistWindow.GetBuffer(), SongHeight, REPLWidth);
+        m_WindowManager.SetDimensions(MBCLI::Dimensions(m_TerminalWidth,m_TerminalHeight));
+        m_WindowBuffer = m_WindowManager.GetBuffer();
+        MBCLI::CursorInfo NewCursorInfo = m_WindowManager.GetCursorInfo();
         m_AssociatedTerminal->PrintWindowBuffer(m_WindowBuffer, 0, 0);
         m_AssociatedTerminal->SetCursorPosition(NewCursorInfo.Position);
         m_AssociatedTerminal->Refresh();
