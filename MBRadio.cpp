@@ -62,26 +62,26 @@ namespace MBRadio
         bool ReturnValue = m_Updated.load();
         return(ReturnValue);
     }
-    CursorInfo REPLWindow_QueryDisplayer::GetCursorInfo()
+    MBCLI::CursorInfo REPLWindow_QueryDisplayer::GetCursorInfo()
     {
-        CursorInfo ReturnValue;
+        MBCLI::CursorInfo ReturnValue;
         ReturnValue.Hidden = true;
         ReturnValue.Position = { 0,0 };
         return(ReturnValue);
     }
-    void REPLWindow_QueryDisplayer::SetActiveWindow(bool ActiveStatus)
+    void REPLWindow_QueryDisplayer::SetFocus(bool ActiveStatus)
     {
         //
     }
-    void REPLWindow_QueryDisplayer::SetDimension(int Width, int Height)
+    void REPLWindow_QueryDisplayer::SetDimensions(MBCLI::Dimensions Dims)
     {
         m_Updated.store(true);
         std::lock_guard<std::mutex> Lock(m_InternalsMutex);
-        m_Width = Width;
-        m_Height = Height;
+        m_Width = Dims.Width;
+        m_Height = Dims.Height;
         m_ResultTable.SetWidth(m_Width);
     }
-    MBCLI::TerminalWindowBuffer REPLWindow_QueryDisplayer::GetDisplay()
+    MBCLI::TerminalWindowBuffer REPLWindow_QueryDisplayer::GetBuffer()
     {
         std::lock_guard<std::mutex> Lock(m_InternalsMutex);
         return(m_ResultTable.GetWindowBuffer(m_CurrentRowOffset, m_CurrentCharacterOffset, m_Height));
@@ -139,7 +139,7 @@ namespace MBRadio
         }
         return(ReturnValue);
     }
-    void REPLWindow::SetActiveWindow(bool ActiveStatus)
+    void REPLWindow::SetFocus(bool ActiveStatus)
     {
         if (m_IsActive != ActiveStatus)
         {
@@ -147,9 +147,9 @@ namespace MBRadio
         }
         m_IsActive = ActiveStatus;
     }
-    CursorInfo REPLWindow::GetCursorInfo() 
+    MBCLI::CursorInfo REPLWindow::GetCursorInfo() 
     {
-        CursorInfo ReturnValue;
+        MBCLI::CursorInfo ReturnValue;
         if (m_ResultWindow == nullptr)
         {
             ReturnValue.Hidden = false;
@@ -166,16 +166,19 @@ namespace MBRadio
         }
         return(ReturnValue);
     }
-    void REPLWindow::SetDimension(int Width, int Height)
+    void REPLWindow::SetDimensions(MBCLI::Dimensions Dims)
     {
-        m_Width = Width;
-        m_Height = Height;
+        m_Width = Dims.Width;
+        m_Height = Dims.Height;
         if (m_ResultWindow != nullptr)
         {
-            m_ResultWindow->SetDimension(Width,m_Height-(m_Height / 3));
+            MBCLI::Dimensions NewDims;
+            NewDims.Width = m_Width;
+            NewDims.Height = m_Height-(m_Height / 3);
+            m_ResultWindow->SetDimensions(NewDims);
         }
     }
-    MBCLI::TerminalWindowBuffer REPLWindow::GetDisplay()
+    MBCLI::TerminalWindowBuffer REPLWindow::GetBuffer()
     {
         MBCLI::TerminalWindowBuffer ReturnValue(m_Width,m_Height);
         
@@ -218,7 +221,7 @@ namespace MBRadio
         }
         else
         {
-            ReturnValue.WriteBuffer(m_ResultWindow->GetDisplay(), CommandHeight, 0);
+            ReturnValue.WriteBuffer(m_ResultWindow->GetBuffer(), CommandHeight, 0);
         }
         ReturnValue.WriteBuffer(CommandBuffer, 0, 0);
 
@@ -343,7 +346,7 @@ namespace MBRadio
             }
             else
             {
-                m_ResultWindow = std::unique_ptr<MBRadioWindow>(new REPLWindow_QueryDisplayer(std::move(QuerryData), m_Width, m_Height - (m_Height / 3)));
+                m_ResultWindow = std::unique_ptr<MBCLI::Window>(new REPLWindow_QueryDisplayer(std::move(QuerryData), m_Width, m_Height - (m_Height / 3)));
             }
         }
 
@@ -617,20 +620,20 @@ namespace MBRadio
         m_Updated = false;
         return(ReturnValue);
     }
-    void PlayListWindow::SetActiveWindow(bool ActiveStatus)
+    void PlayListWindow::SetFocus(bool ActiveStatus)
     {
         std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
         m_ActiveWindow = ActiveStatus;
     }
-    void PlayListWindow::SetDimension(int Width, int Height)
+    void PlayListWindow::SetDimensions(MBCLI::Dimensions Dims)
     {
         //
         std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
-        m_Width = Width;
-        m_Height = Height;
+        m_Width = Dims.Width;
+        m_Height = Dims.Height;
         m_Updated = true;
     }
-    MBCLI::TerminalWindowBuffer PlayListWindow::GetDisplay()
+    MBCLI::TerminalWindowBuffer PlayListWindow::GetBuffer()
     {
         std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
         MBCLI::TerminalWindowBuffer ReturnValue(m_Width,m_Height);
@@ -837,14 +840,14 @@ namespace MBRadio
     {
         return(m_Updated.load());
     }
-    void SongWindow::SetActiveWindow(bool ActiveStatus)
+    void SongWindow::SetFocus(bool ActiveStatus)
     {
         //
     }
-    void SongWindow::SetDimension(int Width, int Height)
+    void SongWindow::SetDimensions(MBCLI::Dimensions Dims)
     {
-        m_Width = Width;
-        m_Height = Height;
+        m_Width = Dims.Width;
+        m_Height = Dims.Height;
     }
     std::string SongWindow::p_TimeToString(float TimeToConvert)
     {
@@ -947,7 +950,7 @@ namespace MBRadio
         ReturnValue.WriteBuffer(ProgressPart, 0, ColumnOffset + 1 + TimePart.GetWidth());
         return(ReturnValue);
     }
-    MBCLI::TerminalWindowBuffer SongWindow::GetDisplay()
+    MBCLI::TerminalWindowBuffer SongWindow::GetBuffer()
     {
         MBCLI::TerminalWindowBuffer ReturnValue(m_Width, m_Height);
         ReturnValue.WriteBorder(ReturnValue.GetWidth(), ReturnValue.GetHeight(), 0, 0, MBCLI::ANSITerminalColor::BrightWhite);
@@ -1297,11 +1300,11 @@ namespace MBRadio
 
         m_TerminalWidth = Info.Width;
         m_TerminalHeight = Info.Height;
-        m_REPLWindow.SetDimension(m_TerminalWidth, m_TerminalHeight);
-        m_PlaylistWindow.SetDimension(m_TerminalWidth, m_TerminalHeight);
-        m_SongWindow.SetDimension(m_TerminalWidth, m_TerminalHeight);
+        m_REPLWindow.SetDimensions(MBCLI::Dimensions(m_TerminalWidth, m_TerminalHeight));
+        m_PlaylistWindow.SetDimensions(MBCLI::Dimensions(m_TerminalWidth, m_TerminalHeight));
+        m_SongWindow.SetDimensions(MBCLI::Dimensions(m_TerminalWidth, m_TerminalHeight));
         m_WindowBuffer = MBCLI::TerminalWindowBuffer(m_TerminalWidth, m_TerminalHeight);
-        m_REPLWindow.SetActiveWindow(true);
+        m_REPLWindow.SetFocus(true);
 
     }
     void MBRadio::p_WindowResizeCallback(int NewWidth, int NewHeight)
@@ -1455,15 +1458,15 @@ namespace MBRadio
         int PlaylistHeight = REPLHeight;
         int PlaylistWidth = m_TerminalWidth - REPLWidth;
 
-        m_SongWindow.SetDimension(SongWidth, SongHeight);
-        m_PlaylistWindow.SetDimension(PlaylistWidth, PlaylistHeight);
-        m_REPLWindow.SetDimension(REPLWidth, REPLHeight);
+        m_SongWindow.SetDimensions( MBCLI::Dimensions(SongWidth, SongHeight));
+        m_PlaylistWindow.SetDimensions(MBCLI::Dimensions(PlaylistWidth, PlaylistHeight));
+        m_REPLWindow.SetDimensions(MBCLI::Dimensions(REPLWidth, REPLHeight));
 
-        m_WindowBuffer.WriteBuffer(m_SongWindow.GetDisplay(), 0, 0);
-        m_WindowBuffer.WriteBuffer(m_REPLWindow.GetDisplay(), SongHeight, 0);
-        m_WindowBuffer.WriteBuffer(m_PlaylistWindow.GetDisplay(), SongHeight, REPLWidth);
+        m_WindowBuffer.WriteBuffer(m_SongWindow.GetBuffer(), 0, 0);
+        m_WindowBuffer.WriteBuffer(m_REPLWindow.GetBuffer(), SongHeight, 0);
+        m_WindowBuffer.WriteBuffer(m_PlaylistWindow.GetBuffer(), SongHeight, REPLWidth);
 
-        CursorInfo NewCursorInfo;
+        MBCLI::CursorInfo NewCursorInfo;
         if (m_ActiveWindow == MBRadioWindowType::REPL)
         {
             NewCursorInfo = m_REPLWindow.GetCursorInfo();

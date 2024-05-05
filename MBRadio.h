@@ -5,6 +5,9 @@
 #include "MBRadio_Defines.h"
 
 #include "MBRConfig.h"
+
+
+#include <MBCLI/Window.h>
 namespace MBRadio
 {
     class MBRadio;
@@ -39,27 +42,8 @@ namespace MBRadio
         void Shuffle();
         std::vector<Song> const& GetSongs();
     };
-    struct CursorInfo
-    {
-        bool Hidden = true;
-        MBCLI::CursorPosition Position = { 0,0 };
-    };
-    class MBRadioWindow
-    {
-        //allt antas vara thread safe
-    public:
-        virtual bool Updated() = 0;
-        virtual void SetActiveWindow(bool ActiveStatus) = 0;
-        virtual CursorInfo GetCursorInfo()
-        {
-            return(CursorInfo());
-        }
-        virtual void SetDimension(int Width, int Height) = 0;
-        virtual MBCLI::TerminalWindowBuffer GetDisplay() = 0;
-        virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) = 0;
-    };
 
-    class PlayListWindow : public MBRadioWindow
+    class PlayListWindow : public MBCLI::Window
     {
     private:
         std::mutex m_InternalsMutex;
@@ -74,10 +58,10 @@ namespace MBRadio
         std::vector<size_t> m_ShuffleIndexes = {};
     public:
         virtual bool Updated() override;
-        virtual void SetActiveWindow(bool ActiveStatus) override;
-        virtual void SetDimension(int Width, int Height) override; 
-        virtual MBCLI::TerminalWindowBuffer GetDisplay() override;
+        virtual void SetDimensions(MBCLI::Dimensions Dims) override; 
+        virtual MBCLI::TerminalWindowBuffer GetBuffer() override;
         virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) override;
+        virtual void SetFocus(bool IsFocused) override;
 
         void RemoveSong(size_t SongIndex);
         void ClearSongs();
@@ -92,7 +76,7 @@ namespace MBRadio
     };
     //REPLWindow window handlers
 
-    class REPLWindow_QueryDisplayer : public MBRadioWindow
+    class REPLWindow_QueryDisplayer : public MBCLI::Window
     {
     private:
         std::mutex m_InternalsMutex;
@@ -111,15 +95,15 @@ namespace MBRadio
 
 
         virtual bool Updated() override;
-        virtual CursorInfo GetCursorInfo() override;
-        virtual void SetActiveWindow(bool ActiveStatus) override;
-        virtual void SetDimension(int Width, int Height) override;
-        virtual MBCLI::TerminalWindowBuffer GetDisplay() override;
+        virtual MBCLI::CursorInfo GetCursorInfo() override;
+        virtual void SetFocus(bool IsFocused) override;
+        virtual void SetDimensions(MBCLI::Dimensions Dims) override;
+        virtual MBCLI::TerminalWindowBuffer GetBuffer() override;
         virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) override;
     };
 
 
-    class REPLWindow : public MBRadioWindow
+    class REPLWindow : public MBCLI::Window
     {
     private:
         bool m_IsActive = false;
@@ -127,7 +111,7 @@ namespace MBRadio
         int m_Height = -1;
         int m_Width = -1;
 
-        std::unique_ptr<MBRadioWindow> m_ResultWindow = nullptr;
+        std::unique_ptr<MBCLI::Window> m_ResultWindow = nullptr;
 
         MBCLI::LineBuffer m_OutputBuffer;
         MBCLI::DefaultInputReciever m_InputLineReciever;
@@ -148,10 +132,10 @@ namespace MBRadio
         REPLWindow(MBRadio* AssociatedRadio);
 
         virtual bool Updated() override;
-        virtual CursorInfo GetCursorInfo() override;
-        virtual void SetActiveWindow(bool ActiveStatus) override;
-        virtual void SetDimension(int Width, int Height) override;
-        virtual MBCLI::TerminalWindowBuffer GetDisplay() override;
+        virtual MBCLI::CursorInfo GetCursorInfo() override;
+        virtual void SetFocus(bool ActiveStatus) override;
+        virtual void SetDimensions(MBCLI::Dimensions Dims) override;
+        virtual MBCLI::TerminalWindowBuffer GetBuffer() override;
         virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) override;
     };
     class SongPlaybacker
@@ -203,7 +187,7 @@ namespace MBRadio
 
         ~SongPlaybacker();
     };
-    class SongWindow : public MBRadioWindow
+    class SongWindow : public MBCLI::Window
     {
     private:
         int m_Width = -1;
@@ -232,9 +216,9 @@ namespace MBRadio
         //std::unique_ptr<MBAE::AudioOutputDevice> m_OutputDevice = nullptr;
     public:
         virtual bool Updated() override;
-        virtual void SetActiveWindow(bool ActiveStatus) override;
-        virtual void SetDimension(int Width, int Height) override;
-        virtual MBCLI::TerminalWindowBuffer GetDisplay() override;
+        virtual void SetFocus(bool ActiveStatus) override;
+        virtual void SetDimensions(MBCLI::Dimensions Dims) override;
+        virtual MBCLI::TerminalWindowBuffer GetBuffer() override;
         virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) override;
 
         SongWindow(MBRadio* AssociatedRadio);

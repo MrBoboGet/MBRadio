@@ -3,5 +3,5 @@
 	"Version":"0.1.0",
 	"Attributes":[],
 	"ExportedExecutableTargets":["mbradio"],
-	"Dependancies": [ "MBMedia", "MBCLI", "MrBoboSockets","MrPostOGet", "MBStreaming","MBAudioEngine" ,"MBSystem"]
+	"Dependancies": [ "MBMedia", "MBCLI", "MBTUI","MrBoboSockets","MrPostOGet", "MBStreaming","MBAudioEngine" ,"MBSystem"]
 }
