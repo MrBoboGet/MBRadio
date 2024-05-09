@@ -1244,6 +1244,18 @@ namespace MBRadio
     {
         m_SongWindow.PlaySong(SongToplay);
     }
+    void MBRadio::PlaySong_Str(std::string const& SongToPlay)
+    {
+        Song NewSong;
+        NewSong.SongName = SongToPlay;
+        m_SongWindow.PlaySong(NewSong);
+    }
+    MBLisp::Ref<MBLisp::Scope> MBRadio::GetModule()
+    {
+        auto ReturnValue = MBLisp::MakeRef<MBLisp::Scope>();
+        p_RegisterMemberFunction(ReturnValue,"play",&MBRadio::PlaySong_Str);
+        return ReturnValue;
+    }
     MBRadio::MBRadio(MBCLI::MBTerminal* TerminalToUse)
         : m_REPLWindow(this),m_SongWindow(this)
     {
@@ -1266,6 +1278,11 @@ namespace MBRadio
                    
             }
         }
+
+        m_LispEvaluator.AddInternalModule("mbr",GetModule());
+        m_LispEvaluator.LoadStd();
+
+
 
 
         MBCLI::TerminalInfo Info = TerminalToUse->GetTerminalInfo();
@@ -1317,6 +1334,11 @@ namespace MBRadio
     int MBRadio::Run()
     {
         //MBCLI::ConsoleInput TestTest = m_AssociatedTerminal->ReadNextInput();
+		std::filesystem::path RCPath = MBSystem::GetUserHomeDirectory()/".mbradiorc.lisp";
+		if(std::filesystem::exists(RCPath))
+		{
+			m_LispEvaluator.Eval(RCPath);
+		}
         while (true)
         {
             MBCLI::ConsoleInput NewInput = m_AssociatedTerminal->ReadNextInput();
@@ -1447,22 +1469,6 @@ namespace MBRadio
     void MBRadio::p_UpdateWindow()
     {
         std::lock_guard<std::mutex> Lock(m_InternalsMutex);
-        //int SongHeight = 4;
-        //int SongWidth = m_TerminalWidth;
-        //int REPLHeight = m_TerminalHeight - SongHeight;
-        //int REPLWidth = (m_TerminalWidth * 2) / 3;
-        //int PlaylistHeight = REPLHeight;
-        //int PlaylistWidth = m_TerminalWidth - REPLWidth;
-
-
-
-        //m_SongWindow.SetDimensions( MBCLI::Dimensions(SongWidth, SongHeight));
-        //m_PlaylistWindow.SetDimensions(MBCLI::Dimensions(PlaylistWidth, PlaylistHeight));
-        //m_REPLWindow.SetDimensions(MBCLI::Dimensions(REPLWidth, REPLHeight));
-
-        //m_WindowBuffer.WriteBuffer(m_SongWindow.GetBuffer(), 0, 0);
-        //m_WindowBuffer.WriteBuffer(m_REPLWindow.GetBuffer(), SongHeight, 0);
-        //m_WindowBuffer.WriteBuffer(m_PlaylistWindow.GetBuffer(), SongHeight, REPLWidth);
         m_WindowManager.SetDimensions(MBCLI::Dimensions(m_TerminalWidth,m_TerminalHeight));
         m_WindowBuffer = m_WindowManager.GetBuffer();
         MBCLI::CursorInfo NewCursorInfo = m_WindowManager.GetCursorInfo();

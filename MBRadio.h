@@ -10,6 +10,10 @@
 #include <MBCLI/Window.h>
 
 #include <MBTUI/MBTUI.h>
+
+#include <MBLisp/Evaluator.h>
+
+
 namespace MBRadio
 {
     class MBRadio;
@@ -28,11 +32,11 @@ namespace MBRadio
                 ReturnValue = false;
             }
 
-            return(ReturnValue);
+            return ReturnValue;
         }
         bool operator!=(Song const& rhs)
         {
-            return(!(*this == rhs));
+            return !(*this == rhs);
         }
     };
     class Playlist
@@ -259,9 +263,34 @@ namespace MBRadio
         PlayListWindow m_PlaylistWindow;
         REPLWindow m_REPLWindow;
 
+        MBLisp::Ref<MBLisp::Scope> GetModule();
+
+        MBLisp::Evaluator m_LispEvaluator;
+
         MBCLI::WindowManager m_WindowManager;
 
         void p_WindowResizeCallback(int NewWidth,int NewHeight);
+
+        //MBLisp api
+        template<typename ReturnValue,typename... ArgType>
+        void p_RegisterMemberFunction(MBLisp::Ref<MBLisp::Scope>& AssociatedScope,std::string const& Name ,ReturnValue(MBRadio::* Func)(ArgType...))
+        {
+            m_LispEvaluator.AddFunctionObject(AssociatedScope,Name,[Obj=this,Func=Func](ArgType... Args) mutable -> ReturnValue
+                    { 
+                        if constexpr(std::is_same_v<ReturnValue,void>)
+                        {
+                            (*Obj.*Func)(Args...);
+                        }
+                        else
+                        {
+                            return (*Obj.*Func)(Args...);
+                        }
+                    });
+        }
+
+        void PlaySong_Str(std::string const& SongToPlay);
+
+
     public:
         MBRadio(MBCLI::MBTerminal* TerminalToUse);
         void PlaySong(Song SongToplay);
