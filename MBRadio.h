@@ -144,6 +144,8 @@ namespace MBRadio
         virtual void SetDimensions(MBCLI::Dimensions Dims) override;
         virtual MBCLI::TerminalWindowBuffer GetBuffer() override;
         virtual void HandleInput(MBCLI::ConsoleInput const& InputToHandle) override;
+
+        void AddCompletion(MBTUI::REPL::CompletionFuncType CompletionFunc);
     };
     class SongPlaybacker
     {
@@ -289,6 +291,8 @@ namespace MBRadio
         }
 
         void PlaySong_Str(std::string const& SongToPlay);
+        void AddCompletion(MBLisp::Value CompletionFunc);
+        std::vector<MBLisp::Value> m_LispCompletions;
 
 
     public:

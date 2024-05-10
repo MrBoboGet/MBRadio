@@ -580,6 +580,10 @@ namespace MBRadio
         }
         return ReturnValue;
     }
+    void REPLWindow::AddCompletion(MBTUI::REPL::CompletionFuncType CompletionFunc)
+    {
+        m_Repl.AddCompletionFunc(std::move(CompletionFunc));
+    }
     //END REPLWindow
 
     //BEGIN PlayListWindow
@@ -1250,10 +1254,37 @@ namespace MBRadio
         NewSong.SongName = SongToPlay;
         m_SongWindow.PlaySong(NewSong);
     }
+    void MBRadio::AddCompletion(MBLisp::Value CompletionFunc)
+    {
+        m_REPLWindow.AddCompletion([Evaluator=&m_LispEvaluator,Func=std::move(CompletionFunc)](MBTUI::REPL_Line const& Line)
+                {
+                    std::vector<std::string> ReturnValue;
+                    MBLisp::ExecutionState State;
+
+                    MBLisp::List ConvertedValues;
+                    for(auto const& Token : Line.Tokens)
+                    {
+                        ConvertedValues.push_back(Token);
+                    }
+                    auto Result = Evaluator->Eval(State,Func,{Line.TokenIndex,ConvertedValues});
+                    if(Result.IsType<MBLisp::List>())
+                    {
+                        for(auto const& Elem : Result.GetType<MBLisp::List>())
+                        {
+                            if(Elem.IsType<MBLisp::String>())
+                            {
+                                ReturnValue.push_back(Elem.GetType<MBLisp::String>());
+                            }
+                        }
+                    }
+                    return ReturnValue;
+                });
+    }
     MBLisp::Ref<MBLisp::Scope> MBRadio::GetModule()
     {
         auto ReturnValue = MBLisp::MakeRef<MBLisp::Scope>();
         p_RegisterMemberFunction(ReturnValue,"play",&MBRadio::PlaySong_Str);
+        p_RegisterMemberFunction(ReturnValue,"add-completion",&MBRadio::AddCompletion);
         return ReturnValue;
     }
     MBRadio::MBRadio(MBCLI::MBTerminal* TerminalToUse)
