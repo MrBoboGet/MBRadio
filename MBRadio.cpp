@@ -1280,11 +1280,26 @@ namespace MBRadio
                     return ReturnValue;
                 });
     }
+    void MBRadio::AddMapping_Str(std::string const& Mapping,std::string const& Result)
+    {
+        m_Mapper.AddBinding(Mapping,Result);
+    }
+
+    void MBRadio::AddMapping_Callable(std::string const& Mapping,MBLisp::Value const& Callable)
+    {
+        m_Mapper.AddBinding(Mapping,std::make_shared<MBUtility::MOFunction<void()>>([Val = Callable,Evaluator=&m_LispEvaluator]()
+                {
+                    MBLisp::ExecutionState State;
+                    Evaluator->Eval(State,Val,{});
+                }  ));
+    }
     MBLisp::Ref<MBLisp::Scope> MBRadio::GetModule()
     {
         auto ReturnValue = MBLisp::MakeRef<MBLisp::Scope>();
         p_RegisterMemberFunction(ReturnValue,"play",&MBRadio::PlaySong_Str);
         p_RegisterMemberFunction(ReturnValue,"add-completion",&MBRadio::AddCompletion);
+        p_RegisterMemberFunction(ReturnValue,"add-mapping",&MBRadio::AddMapping_Callable);
+        p_RegisterMemberFunction(ReturnValue,"add-mapping",&MBRadio::AddMapping_Str);
         return ReturnValue;
     }
     MBRadio::MBRadio(MBCLI::MBTerminal* TerminalToUse)
@@ -1362,6 +1377,59 @@ namespace MBRadio
         }
         p_UpdateWindow();
     }
+    void MBRadio::p_HandleInput(MBCLI::ConsoleInput const& Input)
+    {
+        if (Input.KeyModifiers & uint64_t(MBCLI::KeyModifier::CTRL))
+        {
+            if (Input.CharacterInput == MBCLI::CTRL('p'))
+            {
+                if (m_SongWindow.Paused())
+                {
+                    m_SongWindow.Play();
+                }
+                else
+                {
+                    m_SongWindow.Pause();
+                }
+            }
+            else if (Input.SpecialInput == MBCLI::SpecialKey::Left)
+            {
+                m_SongWindow.Seek(-5);
+            }
+            else if (Input.SpecialInput == MBCLI::SpecialKey::Right)
+            {
+                m_SongWindow.Seek(5);
+            }
+            else if (Input.SpecialInput == MBCLI::SpecialKey::Up)
+            {
+                m_PlaylistWindow.Scroll(m_PlaylistWindow.GetCurrentDisplayIndex() - 1);
+            }
+            else if (Input.SpecialInput == MBCLI::SpecialKey::Down)
+            {
+                m_PlaylistWindow.Scroll(m_PlaylistWindow.GetCurrentDisplayIndex() + 1);
+            }
+            else if (Input.CharacterInput == MBCLI::CTRL('r'))
+            {
+                m_SongWindow.Seek(-100000);
+            }
+        }
+        else if (m_ActiveWindow == MBRadioWindowType::REPL)
+        {
+            m_REPLWindow.HandleInput(Input);
+        }
+        else if (m_ActiveWindow == MBRadioWindowType::Song)
+        {
+            m_SongWindow.HandleInput(Input);
+        }
+        else if(m_ActiveWindow == MBRadioWindowType::Playlist)
+        {
+            m_PlaylistWindow.HandleInput(Input);
+        }
+        if(m_WindowManager.Updated())
+        {
+            p_UpdateWindow();
+        }
+    }
     int MBRadio::Run()
     {
         //MBCLI::ConsoleInput TestTest = m_AssociatedTerminal->ReadNextInput();
@@ -1373,75 +1441,26 @@ namespace MBRadio
         while (true)
         {
             MBCLI::ConsoleInput NewInput = m_AssociatedTerminal->ReadNextInput();
-
-            //DEBUG
-            //if (NewInput.SpecialInput != MBCLI::SpecialKey::Null)
-            //{
-            //    std::cout << "Special: " << std::dec << int(NewInput.SpecialInput) << std::endl;
-            //    continue;
-            //}
-            //std::string OutputString = NewInput.CharacterInput.ToString();
-            //for (char Character : OutputString)
-            //{
-            //    std::cout << std::hex << int(Character) << std::endl;
-            //}
-            //std::cout << "KeyModifier" << int(NewInput.KeyModifiers) << std::endl;
-            //continue;
-            //DEBUG
-            if (NewInput.KeyModifiers & uint64_t(MBCLI::KeyModifier::CTRL))
+            m_Mapper.AddInput(std::move(NewInput));
+            if(m_Mapper.OutputAvailable())
             {
-                if (NewInput.CharacterInput == MBCLI::CTRL('p'))
+                auto Output = m_Mapper.GetResult();
+                for(auto& Event : Output.Events)
                 {
-                    if (m_SongWindow.Paused())
+                    if(std::holds_alternative<MBTUI::KeyMapper::ActionType>(Event))
                     {
-                        m_SongWindow.Play();
+                        auto& ActionEvent = std::get<MBTUI::KeyMapper::ActionType>(Event);
+                        (*ActionEvent)();
                     }
                     else
                     {
-                        m_SongWindow.Pause();
+                        auto& KeyEvent = std::get<std::vector<MBCLI::ConsoleInput>>(Event);
+                        for(auto const& Key : KeyEvent)
+                        {
+                            p_HandleInput(Key);   
+                        }
                     }
                 }
-                else if (NewInput.SpecialInput == MBCLI::SpecialKey::Left)
-                {
-                    m_SongWindow.Seek(-5);
-                }
-                else if (NewInput.SpecialInput == MBCLI::SpecialKey::Right)
-                {
-                    m_SongWindow.Seek(5);
-                }
-                else if (NewInput.SpecialInput == MBCLI::SpecialKey::Up)
-                {
-                    m_PlaylistWindow.Scroll(m_PlaylistWindow.GetCurrentDisplayIndex() - 1);
-                }
-                else if (NewInput.SpecialInput == MBCLI::SpecialKey::Down)
-                {
-                    m_PlaylistWindow.Scroll(m_PlaylistWindow.GetCurrentDisplayIndex() + 1);
-                }
-                else if (NewInput.CharacterInput == MBCLI::CTRL('r'))
-                {
-                    m_SongWindow.Seek(-100000);
-                }
-            }
-            else if (m_ActiveWindow == MBRadioWindowType::REPL)
-            {
-                m_REPLWindow.HandleInput(NewInput);
-            }
-            else if (m_ActiveWindow == MBRadioWindowType::Song)
-            {
-                m_SongWindow.HandleInput(NewInput);
-            }
-            else if(m_ActiveWindow == MBRadioWindowType::Playlist)
-            {
-                m_PlaylistWindow.HandleInput(NewInput);
-            }
-            //bool WindowUpdated = false;
-            //if (m_PlaylistWindow.Updated() || m_REPLWindow.Updated() || m_SongWindow.Updated())
-            //{
-            //    WindowUpdated = true;
-            //}
-            if(m_WindowManager.Updated())
-            {
-                p_UpdateWindow();
             }
         }
     }

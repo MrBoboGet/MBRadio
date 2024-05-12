@@ -271,6 +271,8 @@ namespace MBRadio
 
         MBCLI::WindowManager m_WindowManager;
 
+        MBTUI::KeyMapper m_Mapper;
+
         void p_WindowResizeCallback(int NewWidth,int NewHeight);
 
         //MBLisp api
@@ -292,9 +294,12 @@ namespace MBRadio
 
         void PlaySong_Str(std::string const& SongToPlay);
         void AddCompletion(MBLisp::Value CompletionFunc);
+        void AddMapping_Str(std::string const& Mapping,std::string const& Result);
+        void AddMapping_Callable(std::string const& Mapping,MBLisp::Value const& Callable);
+
         std::vector<MBLisp::Value> m_LispCompletions;
 
-
+        void p_HandleInput(MBCLI::ConsoleInput const& Input);
     public:
         MBRadio(MBCLI::MBTerminal* TerminalToUse);
         void PlaySong(Song SongToplay);
